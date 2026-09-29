@@ -58,4 +58,4 @@ class SAESClient:
         from saes.chat.agent import StatisticalChatAgent
 
         agent = StatisticalChatAgent(report=report, dataset=dataset)
-        return agent.ask(query)
+        return str(agent.ask(query))

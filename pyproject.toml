@@ -13,6 +13,9 @@ authors = [
 ]
 dependencies = [
     "saes>=0.1.0",
+    "matplotlib>=3.7.0",
+    "seaborn>=0.12.0",
+    "plotly>=5.15.0",
     "streamlit>=1.30.0",
     "kaleido>=1.3.0",
     "httpx>=0.27.0",
@@ -27,7 +30,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-saes = { workspace = true }
+saes = { path = "../saes", editable = true }
 
 [project.scripts]
 saes-gui = "saes_ui.app:run_cli"
