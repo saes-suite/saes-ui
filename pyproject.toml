@@ -26,6 +26,9 @@ dev = [
     "mypy>=1.5.0",
 ]
 
+[tool.uv.sources]
+saes = { workspace = true }
+
 [project.scripts]
 saes-gui = "saes_ui.app:run_cli"
 saes-ui = "saes_ui.app:run_cli"

@@ -2,9 +2,7 @@
 
 import io
 import sys
-from typing import Any
 
-import pandas as pd
 import streamlit as st
 
 from saes_ui.client import SAESClient

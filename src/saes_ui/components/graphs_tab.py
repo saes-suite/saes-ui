@@ -4,7 +4,6 @@ import io
 from typing import Any
 
 import streamlit as st
-
 from saes.domain.models import Dataset
 from saes.visualization.registry import PlotterRegistry
 from saes.visualization.utils import PALETTE_MAP, get_color_map

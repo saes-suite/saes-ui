@@ -4,7 +4,6 @@ Supports both direct local library invocation and remote REST API execution.
 """
 
 from typing import Any
-import pandas as pd
 
 
 class SAESClient:
@@ -51,7 +50,7 @@ class SAESClient:
                 if resp.status_code == 200:
                     data = resp.json()
                     return str(data.get("response", ""))
-            except Exception as e:
+            except Exception:
                 # Fallback to local
                 pass
 
