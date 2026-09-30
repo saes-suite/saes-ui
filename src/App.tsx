@@ -211,7 +211,6 @@ export function App() {
         apiOnline={apiOnline}
         datasets={datasets}
         selectedDatasetFilename={stagedUpload ? stagedUpload.filename : selectedDatasetFilename}
-        currentView={view}
         onNavigateHub={() => {
           setStagedUpload(null)
           setView('hub')

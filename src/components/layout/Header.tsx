@@ -11,7 +11,6 @@ interface HeaderProps {
   apiOnline: boolean
   datasets: DatasetItem[]
   selectedDatasetFilename: string | null
-  currentView: 'hub' | 'fix-issues' | 'editor' | 'visualize'
   onNavigateHub: () => void
   onSelectDataset: (filename: string) => void
   onRefreshHealth: () => void
@@ -24,7 +23,6 @@ export const Header: React.FC<HeaderProps> = ({
   apiOnline,
   datasets,
   selectedDatasetFilename,
-  currentView,
   onNavigateHub,
   onSelectDataset,
   onRefreshHealth,
@@ -45,9 +43,11 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={onNavigateHub}
               className="flex items-center gap-3 text-left group cursor-pointer focus:outline-none"
             >
-              <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary text-primary-foreground shadow-xs font-bold text-lg group-hover:scale-105 transition-transform duration-200">
-                Σ
-              </div>
+              <img
+                src="/saes-logo.svg"
+                alt="SAES Logo"
+                className="w-9 h-9 rounded-lg shadow-xs group-hover:scale-105 transition-transform duration-200 object-contain"
+              />
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-bold tracking-tight text-foreground text-base sm:text-lg">
@@ -75,31 +75,6 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
               </div>
             </button>
-
-            {/* Breadcrumb Context indicator */}
-            {currentView !== 'hub' && (
-              <div className="hidden md:flex items-center gap-2 pl-3 ml-2 border-l border-border/80 text-xs sm:text-sm text-muted-foreground">
-                <button
-                  type="button"
-                  onClick={onNavigateHub}
-                  className="hover:text-foreground hover:underline transition-colors cursor-pointer"
-                >
-                  Datasets
-                </button>
-                <span>/</span>
-                <span className="font-semibold text-foreground font-mono">
-                  {selectedDatasetFilename || 'dataset'}
-                </span>
-                <span>/</span>
-                <span className="capitalize text-primary font-medium">
-                  {currentView === 'fix-issues'
-                    ? 'Quality Fixer'
-                    : currentView === 'editor'
-                      ? 'Editor'
-                      : 'Visualization & Stats'}
-                </span>
-              </div>
-            )}
           </div>
 
           {/* Right: Dataset Selector, Server Health, Settings */}
