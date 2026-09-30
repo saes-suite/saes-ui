@@ -13,41 +13,15 @@ import { Badge } from '../ui/badge'
 import {
   analyzeRowByRow,
   saveRowEditsToCsv,
+  getCellValidationIssue,
+  CellIssueInfo,
 } from '../../lib/datasetInspection'
 
-interface ProblematicRowsFixerViewProps {
+export interface ProblematicRowsFixerViewProps {
   filename: string
   rawCsv: string
   onDiscard: () => void
   onSaveCleanDataset: (cleanCsv: string) => Promise<void>
-}
-
-interface CellIssueInfo {
-  label: string
-}
-
-function getCellValidationIssue(column: string, value: string): CellIssueInfo | null {
-  const trimmed = value !== undefined && value !== null ? String(value).trim() : ''
-  if (!trimmed) {
-    return { label: 'Empty cell' }
-  }
-  if (column === 'run_id') {
-    if (!/^-?\d+$/.test(trimmed) || parseInt(trimmed, 10) < 0) {
-      return { label: 'Integer \u2265 0 required' }
-    }
-  }
-  if (column === 'value') {
-    if (isNaN(Number(trimmed))) {
-      return { label: 'NaN / Non-numeric' }
-    }
-  }
-  if (column === 'maximize') {
-    const lower = trimmed.toLowerCase()
-    if (!['true', 'false', '1', '0', 'yes', 'no', 't', 'f', 'max', 'min'].includes(lower)) {
-      return { label: 'True or False required' }
-    }
-  }
-  return null
 }
 
 const COLS = ['algorithm', 'instance', 'metric', 'run_id', 'value', 'maximize'] as const

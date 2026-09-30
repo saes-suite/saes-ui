@@ -96,7 +96,27 @@ export function enrichCellWithAssumptions(
 
   // If variance ratio exceeds standard threshold, homoscedasticity is violated
   const homoscedasticityPassed = varRatio < 2.5
-  const levenePValue = homoscedasticityPassed ? 0.342 : 0.018
+
+  // Check if backend already provided real SciPy assumption results
+  const rawAssumptions = Array.isArray(cell.raw_assumptions)
+    ? cell.raw_assumptions
+    : Array.isArray(cell.assumptions)
+      ? (cell.assumptions as unknown as { name: string; p_value: number; passed: boolean }[])
+      : []
+  const leveneRes = rawAssumptions.find((a) => a.name.toLowerCase().includes('levene'))
+  const levenePValue = leveneRes ? leveneRes.p_value : (homoscedasticityPassed ? 0.342 : 0.018)
+  const finalHomoPassed = leveneRes ? leveneRes.passed : homoscedasticityPassed
+
+  rawAssumptions.forEach((a) => {
+    if (a.name.toLowerCase().includes('shapiro')) {
+      const match = a.name.match(/\((.*?)\)/)
+      const algoName = match ? match[1] : ''
+      if (algoName && algos.includes(algoName)) {
+        normalityPValues[algoName] = a.p_value
+        if (!a.passed) allNormal = false
+      }
+    }
+  })
 
   // Sample sizes
   const sampleSizes: Record<string, number> = {}
@@ -129,7 +149,7 @@ export function enrichCellWithAssumptions(
         p_values: normalityPValues,
       },
       homoscedasticity: {
-        passed: homoscedasticityPassed,
+        passed: finalHomoPassed,
         test: "Levene's Test (Brown-Forsythe)",
         p_value: levenePValue,
       },

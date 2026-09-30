@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import {
+  CellIssueInfo,
+  getCellValidationIssue,
   RowAnalysisResult,
   saveRowEditsToCsv,
 } from '../../lib/datasetInspection'
@@ -14,40 +16,12 @@ import {
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 
-interface ProblematicRowsEditorProps {
+export interface ProblematicRowsEditorProps {
   rawCsv: string
   rowAnalysis: RowAnalysisResult
   onSaveCsv: (newCsv: string) => Promise<void>
   onRevalidate: () => void
   isSaving?: boolean
-}
-
-interface CellIssueInfo {
-  label: string
-}
-
-function getCellValidationIssue(column: string, value: string): CellIssueInfo | null {
-  const trimmed = value !== undefined && value !== null ? String(value).trim() : ''
-  if (!trimmed) {
-    return { label: 'Empty cell' }
-  }
-  if (column === 'run_id') {
-    if (!/^-?\d+$/.test(trimmed) || parseInt(trimmed, 10) < 0) {
-      return { label: 'Integer \u2265 0 required' }
-    }
-  }
-  if (column === 'value') {
-    if (isNaN(Number(trimmed))) {
-      return { label: 'NaN / Non-numeric' }
-    }
-  }
-  if (column === 'maximize') {
-    const lower = trimmed.toLowerCase()
-    if (!['true', 'false', '1', '0', 'yes', 'no', 't', 'f', 'max', 'min'].includes(lower)) {
-      return { label: 'True or False required' }
-    }
-  }
-  return null
 }
 
 export const ProblematicRowsEditor: React.FC<ProblematicRowsEditorProps> = ({

@@ -1,50 +1,55 @@
-# CLAUDE.md — SAES (Stochastic Algorithm Evaluation Suite)
+# CLAUDE.md — SAES-UI (Stochastic Algorithm Evaluation Suite UI)
 
 > This file is read automatically by Claude, Antigravity, and any AI assistant that opens this repository.
 > It defines the project identity, architecture, and non-negotiable conventions.
 
 ## Project Identity
 
-**What**: SAES (Stochastic Algorithm Evaluation Suite) — Modern Python library and Streamlit GUI for statistical analysis, hypothesis testing, and algorithm evaluation.
+**What**: SAES-UI — Modern dual-target Single Page Application (Web) and native lightweight desktop application (Tauri v2) for statistical benchmark analysis, hypothesis testing, diagnostic validation, and data visualization.
 
 **Who**: SAES development team.
 
-**Goal**: Provide a clean, extensible statistical suite (t-tests, ANOVA, assumption checkers, decision engines) and automated reporting for algorithm evaluation.
+**Goal**: Provide a publication-grade interactive client that connects with `saes` REST API (`http://127.0.0.1:8000`) and provides full offline fallback inspection and repair tools.
 
 ---
 
 ## Repository Layout
 
 ```
-SAES2/
+saes-ui/
 ├── .agents/
 │   └── rules/
 │       └── code-guidelines.md   ← always_on agent context
 ├── .github/
 │   └── workflows/
-│       ├── tests.yml            ← CI pipeline (lint + test)
-│       └── release.yml          ← Release stamp & bump on merged PRs
-├── docs/                        ← Project documentation
+│       ├── test.yml             ← CI pipeline (lint + typecheck + build)
+│       └── release.yml          ← Tauri multi-platform desktop release builder
 ├── scripts/
-│   └── release_stamp.js         ← Version & CHANGELOG automation
-├── src/
-│   └── saes/                    ← Core library source code
-│       ├── api.py               ← High-level public API
-│       ├── app/                 ← Execution pipeline
-│       ├── domain/              ← Data models & exceptions
-│       ├── gui/                 ← Streamlit interface
-│       ├── io/                  ← CSV data readers & input handlers
-│       ├── stats/               ← Statistical algorithms (ANOVA, t-tests)
-│       ├── validation/          ← Dataset validators
-│       └── visualization/       ← Boxplot and plot generators
-├── tests/                       ← Pytest suite (unit, statistical, integration)
+│   └── release_stamp.cjs        ← Version & CHANGELOG automation
+├── src-tauri/                   ← Tauri v2 native desktop shell (Rust)
+│   ├── Cargo.toml               ← Rust dependencies & desktop package version
+│   ├── tauri.conf.json          ← Window configs & bundle identifiers
+│   ├── capabilities/            ← Tauri v2 security policies
+│   └── src/
+│       └── main.rs              ← Native desktop shell entry point
+├── src/                         ← Frontend source code
+│   ├── api/                     ← Typed client & domain types mirroring saes REST API
+│   ├── components/              ← React components (charts, chat, data, layout, stats, ui)
+│   ├── hooks/                   ← useAnalysis, useChat, useTauri
+│   ├── lib/                     ← datasetInspection, datasetRepairs, stats, utils
+│   ├── styles/                  ← Tailwind CSS & KaTeX styling
+│   ├── App.tsx                  ← Application root & view manager
+│   └── main.tsx                 ← React DOM entry point
 ├── CHANGELOG.md                 ← Release history
 ├── CLAUDE.md                    ← This file
 ├── Makefile                     ← All development commands
-├── pyproject.toml               ← Project configuration & dependencies
+├── package.json                 ← Node dependencies and scripts
+├── pnpm-lock.yaml               ← pnpm lockfile
 ├── README.md                    ← Project overview
-├── uv.lock                      ← Dependency lockfile
-└── version.txt                  ← Version (X.Y.Z)
+├── tailwind.config.ts           ← Tailwind CSS design system configuration
+├── tsconfig.json                ← Strict TypeScript compiler options
+├── version.txt                  ← Version (X.Y.Z)
+└── vite.config.ts               ← Vite build configuration & chunk splitting
 ```
 
 ---
@@ -53,89 +58,46 @@ SAES2/
 
 | Layer | Technology | Notes |
 |-------|------------|-------|
-| Language | Python >= 3.11 | Modern Python standard |
-| Package Manager | `uv` | Fast package management & environment resolution |
-| Statistical Engines | NumPy, SciPy, Pandas, Statsmodels | Core computations & dataframes |
-| Visualization | Matplotlib, Seaborn | Charting engines |
-| GUI | Streamlit | Interactive web interface |
-| Linter & Formatter | Ruff | Fast static analysis & formatting |
-| Type Checker | MyPy | Strict type hints checking |
-| Testing Framework | Pytest, Pytest-Cov | Unit, statistical correctness & integration tests |
-| CI/CD | GitHub Actions | Workflows for test validation and release stamping |
+| Frontend Core | React 18, TypeScript (strict) | Component architecture |
+| Build Tool | Vite 6 | Fast HMR & production bundler |
+| Package Manager | `pnpm` | Fast deterministic dependency management |
+| Desktop Runtime | Tauri v2 | Lightweight native OS shell (Rust) |
+| Styling | Tailwind CSS 3, Radix UI Primitives | Responsive scientific dark/light themes |
+| Visualization | Plotly.js (`plotly.js-dist-min`) | Interactive distribution plots with 300 DPI export |
+| Tables | `@tanstack/react-table` | Sortable, paginated benchmark data inspection |
+| Math Rendering | KaTeX, `remark-math`, `rehype-katex` | LaTeX notation rendering ($p < 0.001$, $\eta^2$) |
+| HTTP Client | Axios, `@tanstack/react-query` | REST communication with `saes-api` |
+| Linter & Formatter | ESLint 9, Prettier | Code formatting and quality gates |
+
+---
+
+## Development Commands
+
+```bash
+make help               # List all available targets
+make install            # Install dependencies via pnpm
+make dev                # Launch Vite web dev server (port 1420)
+make desktop            # Launch Tauri native desktop app in dev mode
+make build-web          # Build static web SPA into dist/
+make build-desktop      # Build native desktop installers
+make lint               # Run ESLint and Prettier checks
+make format             # Auto-format code with Prettier and ESLint
+make typecheck          # Run strict TypeScript typecheck (tsc --noEmit)
+make ci                 # Full CI quality gate (lint + typecheck)
+make version            # Show current version
+make release-dry-run    # Preview version bump
+make release-stamp      # Bump version across package.json & Tauri configs
+make branch             # Create a feature/fix branch
+```
 
 ---
 
 ## 🛡️ Mandatory Quality Gate
 
-Before finishing any task or suggesting a commit, **you MUST run**:
+Before completing any task or proposing commits:
 
 ```bash
 make ci
 ```
 
-This command runs the full quality pipeline (`lint` + `test`):
-- `uv run ruff check .`
-- `uv run mypy src`
-- `uv run pytest`
-
-Never consider a task complete if `make ci` fails.
-
----
-
-## 🌿 Branching & Versioning (Official Workflow)
-
-### Version Tracking (`version.txt`)
-
-- Tracked in `version.txt` and synchronized with `pyproject.toml`.
-- Managed by `scripts/release_stamp.js` — **never edit manually**.
-- Clean semver versions without `-SNAPSHOT` suffixes.
-
-### Changelog Workflow
-
-1. While working on a branch, add entries under `## [Unreleased]` in `CHANGELOG.md`.
-   - Pending changes are tracked between `## [Unreleased]` and `## [Released]` markers.
-2. On PR merge to `main`, the GitHub Actions `release.yml` workflow automatically:
-   - Stamps `## [Unreleased]` into the `## [Released]` section with version, date, and author.
-   - Keeps clean `## [Unreleased]` and `## [Released]` markers intact.
-   - Bumps `version.txt` and `pyproject.toml` to the next clean semver release version.
-   - Commits to `main` with `[skip ci]`.
-
-### Branch → Version Bump Convention
-
-| Branch prefix | Bump | Example |
-|---|---|---|
-| `feat/*` (default) | Minor | `feat/add-anova-viz` → `0.2.0` |
-| `fix/*`, `patch/*`, `hotfix/*` | Patch | `fix/zero-variance-fallback` → `0.1.1` |
-| `major/*` | Major | `major/v2-architecture` → `1.0.0` |
-
----
-
-## Makefile Commands — Quick Reference
-
-```bash
-make help               # Show all targets
-make install            # Install dependencies with uv (dev included)
-make dev                # Run Streamlit GUI app
-make start              # Run SAES CLI entry point
-make build              # Build package wheel and sdist with uv
-make lint               # Run ruff and mypy linters
-make format             # Auto-format code with ruff
-make test               # Run pytest test suite
-make ci                 # Run full CI pipeline (lint + test)
-
-make version            # Show current version from version.txt
-make branch             # Interactive branch creation
-make release-dry-run    # Preview changelog stamp
-make release-stamp      # Stamp changelog + bump version
-```
-
----
-
-## Conventions for AI Agents
-
-When working in this repository as an agent:
-
-1. **Update `CHANGELOG.md`** under `## [Unreleased]` for any feature, fix, or breaking change.
-2. **Never edit `version.txt` or `pyproject.toml` version manually** — use `make release-stamp`.
-3. **Always run `make ci`** before completing a task to verify linting and tests.
-4. **Follow Conventional Commits**: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`.
+Ensure `pnpm typecheck` and `pnpm lint` pass with zero warnings or errors.

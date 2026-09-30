@@ -128,6 +128,19 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
 
+            {/* AI Consultant Drawer Trigger */}
+            <Button
+              type="button"
+              variant={isChatOpen ? 'default' : 'outline'}
+              size="sm"
+              onClick={onToggleChat}
+              className="h-9 gap-1.5 text-xs font-medium cursor-pointer shadow-xs"
+              title="Toggle Statistical Consultant AI Drawer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span className="hidden sm:inline">AI Consultant</span>
+            </Button>
+
             {/* Server Status Pill & Settings modal trigger */}
             <button
               type="button"

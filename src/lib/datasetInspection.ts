@@ -799,3 +799,31 @@ export function saveRowEditsToCsv(
   return Papa.unparse(updatedRows)
 }
 
+export interface CellIssueInfo {
+  label: string
+}
+
+export function getCellValidationIssue(column: string, value: string): CellIssueInfo | null {
+  const trimmed = value !== undefined && value !== null ? String(value).trim() : ''
+  if (!trimmed) {
+    return { label: 'Empty cell' }
+  }
+  if (column === 'run_id') {
+    if (!/^-?\d+$/.test(trimmed) || parseInt(trimmed, 10) < 0) {
+      return { label: 'Integer ≥ 0 required' }
+    }
+  }
+  if (column === 'value') {
+    if (isNaN(Number(trimmed))) {
+      return { label: 'NaN / Non-numeric' }
+    }
+  }
+  if (column === 'maximize') {
+    const lower = trimmed.toLowerCase()
+    if (!['true', 'false', '1', '0', 'yes', 'no', 't', 'f', 'max', 'min'].includes(lower)) {
+      return { label: 'True or False required' }
+    }
+  }
+  return null
+}
+

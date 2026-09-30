@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Stamp CHANGELOG.md and bump version.txt, pyproject.toml, and package.json for a release.
+ * Stamp CHANGELOG.md and bump version.txt, package.json, and Tauri desktop configs (Cargo.toml & tauri.conf.json).
  *
  * Usage:
  *     node scripts/release_stamp.js --bump minor --author @username
@@ -29,8 +29,9 @@ function parseArgs() {
     dryRun: false,
     versionFile: "version.txt",
     changelogFile: "CHANGELOG.md",
-    pyprojectFile: "pyproject.toml",
     packageFile: "package.json",
+    tauriConfFile: "src-tauri/tauri.conf.json",
+    cargoFile: "src-tauri/Cargo.toml",
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -41,7 +42,6 @@ function parseArgs() {
     else if (arg === "--dry-run") parsed.dryRun = true;
     else if (arg === "--version-file") parsed.versionFile = args[++i];
     else if (arg === "--changelog-file") parsed.changelogFile = args[++i];
-    else if (arg === "--pyproject-file") parsed.pyprojectFile = args[++i];
     else if (arg === "--package-file") parsed.packageFile = args[++i];
   }
 
@@ -88,7 +88,7 @@ function main() {
   const author = args.author || getGitUser();
   const date = args.date || new Date().toISOString().split("T")[0];
 
-  console.log("=== Release Stamp ===");
+  console.log("=== SAES-UI Release Stamp ===");
   console.log(`  Current:  ${current}`);
   console.log(`  Release:  ${release}`);
   console.log(`  Next:     ${nextVersion}`);
@@ -147,15 +147,6 @@ function main() {
   // Write version.txt
   fs.writeFileSync(versionPath, `${nextVersion}\n`);
 
-  // Update pyproject.toml
-  const pyprojectPath = path.resolve(args.pyprojectFile);
-  if (fs.existsSync(pyprojectPath)) {
-    let pyprojectContent = fs.readFileSync(pyprojectPath, "utf-8");
-    pyprojectContent = pyprojectContent.replace(/^version = ".*?"/m, `version = "${nextVersion}"`);
-    fs.writeFileSync(pyprojectPath, pyprojectContent);
-    console.log(`✅ pyproject.toml version bumped to ${nextVersion}`);
-  }
-
   // Update package.json
   const packagePath = path.resolve(args.packageFile);
   if (fs.existsSync(packagePath)) {
@@ -163,6 +154,24 @@ function main() {
     pkg.version = nextVersion;
     fs.writeFileSync(packagePath, JSON.stringify(pkg, null, 2) + "\n");
     console.log(`✅ package.json version bumped to ${nextVersion}`);
+  }
+
+  // Update src-tauri/tauri.conf.json
+  const tauriConfPath = path.resolve(args.tauriConfFile);
+  if (fs.existsSync(tauriConfPath)) {
+    const tauriConf = JSON.parse(fs.readFileSync(tauriConfPath, "utf-8"));
+    tauriConf.version = nextVersion;
+    fs.writeFileSync(tauriConfPath, JSON.stringify(tauriConf, null, 2) + "\n");
+    console.log(`✅ src-tauri/tauri.conf.json version bumped to ${nextVersion}`);
+  }
+
+  // Update src-tauri/Cargo.toml
+  const cargoPath = path.resolve(args.cargoFile);
+  if (fs.existsSync(cargoPath)) {
+    let cargoContent = fs.readFileSync(cargoPath, "utf-8");
+    cargoContent = cargoContent.replace(/^version = ".*?"/m, `version = "${nextVersion}"`);
+    fs.writeFileSync(cargoPath, cargoContent);
+    console.log(`✅ src-tauri/Cargo.toml version bumped to ${nextVersion}`);
   }
 
   console.log(`\n✅ Changelog stamped as ${release}`);

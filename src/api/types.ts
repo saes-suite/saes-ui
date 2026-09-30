@@ -20,6 +20,30 @@ export interface ValidationResponse {
   issues: ValidationIssue[]
 }
 
+export interface AssumptionResult {
+  name: string
+  statistic: number
+  p_value: number
+  passed: boolean
+  alpha: number
+  details?: string
+}
+
+export interface DiagnosticAssumptions {
+  normality?: {
+    passed: boolean
+    test: string
+    p_values: Record<string, number>
+  }
+  homoscedasticity?: {
+    passed: boolean
+    test: string
+    p_value: number
+  }
+  sample_sizes?: Record<string, number>
+  decision_reasoning?: string
+}
+
 export interface CellAnalysis {
   instance: string
   metric: string
@@ -32,21 +56,9 @@ export interface CellAnalysis {
   effect_size_value: number | null
   effect_size_magnitude: 'negligible' | 'small' | 'medium' | 'large' | string | null
   warnings: string[]
-  // Extended diagnostic details (computed or enriched for UI drilldown)
-  assumptions?: {
-    normality?: {
-      passed: boolean
-      test: string
-      p_values: Record<string, number>
-    }
-    homoscedasticity?: {
-      passed: boolean
-      test: string
-      p_value: number
-    }
-    sample_sizes?: Record<string, number>
-    decision_reasoning?: string
-  }
+  // Extended diagnostic details (enriched for UI drilldown)
+  assumptions?: DiagnosticAssumptions
+  raw_assumptions?: AssumptionResult[]
 }
 
 export interface AnalysisResponse {
