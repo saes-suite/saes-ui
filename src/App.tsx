@@ -224,9 +224,9 @@ export function App() {
 
       {/* API Offline Warning Banner */}
       {!apiOnline && (
-        <div className="bg-rose-50 border-b border-rose-200 px-6 py-2.5 text-xs text-rose-800 flex items-center justify-between">
+        <div className="bg-rose-50 dark:bg-rose-950/50 border-b border-rose-200 dark:border-rose-900/60 px-6 py-2.5 text-xs text-rose-800 dark:text-rose-300 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <WifiOff className="w-4 h-4 text-rose-600 shrink-0" />
+            <WifiOff className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
             <span>
               <strong>Backend API Disconnected:</strong> The SAES backend service is offline.
               Connect to http://127.0.0.1:8000 for schema validation and automated hypothesis testing.
@@ -235,7 +235,7 @@ export function App() {
           <button
             type="button"
             onClick={checkHealth}
-            className="px-2.5 py-1 rounded bg-rose-100 hover:bg-rose-200 text-rose-900 text-[11px] font-semibold transition-colors cursor-pointer shrink-0"
+            className="px-2.5 py-1 rounded bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/50 dark:hover:bg-rose-800/60 text-rose-900 dark:text-rose-200 text-[11px] font-semibold transition-colors cursor-pointer shrink-0"
           >
             Retry Connection
           </button>
@@ -244,9 +244,9 @@ export function App() {
 
       {/* Global Error Banner */}
       {error && (
-        <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 text-xs text-amber-800 flex items-center justify-between">
+        <div className="bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-900/60 px-6 py-2.5 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
             <span>{error}</span>
           </div>
         </div>

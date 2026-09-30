@@ -6,6 +6,7 @@ import { PaletteSelector, SCIENTIFIC_PALETTES } from './PaletteSelector'
 import { ExportToolbar } from './ExportToolbar'
 import { calculateDescriptives } from '../../lib/stats'
 import { BarChart3, Box, LineChart, ScatterChart, Activity, Sliders } from 'lucide-react'
+import { useAppearance } from '../../context/AppearanceContext'
 
 interface ChartWorkbenchProps {
   records: BenchmarkRecord[]
@@ -15,6 +16,8 @@ interface ChartWorkbenchProps {
 type GraphType = 'boxplot' | 'violin' | 'barplot' | 'ecdf' | 'scatter'
 
 export const ChartWorkbench = ({ records, alpha }: ChartWorkbenchProps) => {
+  const { theme } = useAppearance()
+  const isDark = theme === 'dark'
   const [graphType, setGraphType] = useState<GraphType>('boxplot')
   const [selectedPaletteId, setSelectedPaletteId] = useState<string>('academic')
   const [fontScale, setFontScale] = useState<number>(13)
@@ -219,16 +222,16 @@ export const ChartWorkbench = ({ records, alpha }: ChartWorkbenchProps) => {
         font: {
           family: 'Inter, sans-serif',
           size: fontScale + 3,
-          color: '#0f172a',
+          color: isDark ? '#f8fafc' : '#0f172a',
         },
       },
       font: {
         family: 'Inter, sans-serif',
         size: fontScale,
-        color: '#475569',
+        color: isDark ? '#cbd5e1' : '#475569',
       },
       paper_bgcolor: 'transparent',
-      plot_bgcolor: 'rgba(248, 250, 252, 0.8)',
+      plot_bgcolor: isDark ? 'rgba(30, 41, 59, 0.7)' : 'rgba(248, 250, 252, 0.8)',
       xaxis: {
         title: {
           text:
@@ -237,31 +240,31 @@ export const ChartWorkbench = ({ records, alpha }: ChartWorkbenchProps) => {
               : graphType === 'scatter'
                 ? 'Independent Run Identifier'
                 : 'Algorithm',
-          font: { size: fontScale, color: '#1e293b' },
+          font: { size: fontScale, color: isDark ? '#f1f5f9' : '#1e293b' },
         },
-        gridcolor: '#e2e8f0',
-        zerolinecolor: '#cbd5e1',
-        tickfont: { color: '#475569' },
+        gridcolor: isDark ? '#334155' : '#e2e8f0',
+        zerolinecolor: isDark ? '#475569' : '#cbd5e1',
+        tickfont: { color: isDark ? '#94a3b8' : '#475569' },
       },
       yaxis: {
         title: {
           text: graphType === 'ecdf' ? 'Empirical CDF P(X ≤ x)' : `${activeMetric} Value`,
-          font: { size: fontScale, color: '#1e293b' },
+          font: { size: fontScale, color: isDark ? '#f1f5f9' : '#1e293b' },
         },
-        gridcolor: '#e2e8f0',
-        zerolinecolor: '#cbd5e1',
-        tickfont: { color: '#475569' },
+        gridcolor: isDark ? '#334155' : '#e2e8f0',
+        zerolinecolor: isDark ? '#475569' : '#cbd5e1',
+        tickfont: { color: isDark ? '#94a3b8' : '#475569' },
       },
       legend: {
         orientation: 'h',
         y: -0.2,
         x: 0.5,
         xanchor: 'center',
-        font: { size: fontScale - 1, color: '#334155' },
+        font: { size: fontScale - 1, color: isDark ? '#e2e8f0' : '#334155' },
       },
       margin: { l: 65, r: 35, t: 55, b: 85 },
     }
-  }, [activeInstance, activeMetric, graphType, fontScale, alpha])
+  }, [activeInstance, activeMetric, graphType, fontScale, alpha, isDark])
 
   // Export handlers
   const handleExportFigure = async (format: 'png' | 'svg' | 'pdf') => {

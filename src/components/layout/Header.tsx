@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
-import { AppWindow, Database, Globe, Settings, Sparkles } from 'lucide-react'
+import { AppWindow, Database, Globe, Moon, Settings, Sparkles, Sun } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { SettingsModal } from './SettingsModal'
 import { DatasetItem } from '../../api/types'
+import { useAppearance } from '../../context/AppearanceContext'
 
 interface HeaderProps {
   isTauri: boolean
@@ -31,6 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
   isChatOpen,
 }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const { theme, toggleTheme, fontSize, setFontSize } = useAppearance()
 
   return (
     <>
@@ -58,14 +60,14 @@ export const Header: React.FC<HeaderProps> = ({
                   {isTauri ? (
                     <Badge
                       variant="secondary"
-                      className="gap-1 text-[10px] font-medium bg-sky-50 text-sky-700 border border-sky-200 py-0.5"
+                      className="gap-1 text-[10px] font-medium bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800 py-0.5"
                     >
                       <AppWindow className="w-2.5 h-2.5" /> Desktop
                     </Badge>
                   ) : (
                     <Badge
                       variant="secondary"
-                      className="gap-1 text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 py-0.5"
+                      className="gap-1 text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800 py-0.5"
                     >
                       <Globe className="w-2.5 h-2.5" /> Web
                     </Badge>
@@ -128,6 +130,71 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
 
+            {/* Font Size Adjuster Buttons */}
+            <div
+              className="flex items-center rounded-lg border border-border bg-card p-0.5 shadow-xs h-9"
+              title="Ajustar tamaño de letra"
+              role="group"
+              aria-label="Ajustar tamaño de letra"
+            >
+              <button
+                type="button"
+                onClick={() => setFontSize('sm')}
+                className={`h-7 px-2 flex items-center justify-center rounded text-xs transition-colors cursor-pointer ${
+                  fontSize === 'sm'
+                    ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
+                title="Tamaño de letra: Pequeño (14px)"
+                aria-label="Tamaño de letra pequeño"
+              >
+                <span className="text-[11px] font-semibold leading-none">A-</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFontSize('md')}
+                className={`h-7 px-2 flex items-center justify-center rounded text-xs transition-colors cursor-pointer ${
+                  fontSize === 'md'
+                    ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
+                title="Tamaño de letra: Normal (16px)"
+                aria-label="Tamaño de letra normal"
+              >
+                <span className="text-[13px] font-medium leading-none">A</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFontSize('lg')}
+                className={`h-7 px-2 flex items-center justify-center rounded text-xs transition-colors cursor-pointer ${
+                  fontSize === 'lg'
+                    ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                }`}
+                title="Tamaño de letra: Grande (18px)"
+                aria-label="Tamaño de letra grande"
+              >
+                <span className="text-[15px] font-bold leading-none">A+</span>
+              </button>
+            </div>
+
+            {/* Theme Toggle Button */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={toggleTheme}
+              className="h-9 w-9 p-0 cursor-pointer shadow-xs border-border bg-card hover:bg-muted/50 text-foreground shrink-0"
+              title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+              aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-slate-700" />
+              )}
+            </Button>
+
             {/* AI Consultant Drawer Trigger */}
             <Button
               type="button"
@@ -148,7 +215,7 @@ export const Header: React.FC<HeaderProps> = ({
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs border transition-colors shadow-xs h-9 cursor-pointer ${
                 apiOnline
                   ? 'border-border bg-card hover:bg-muted/50 text-foreground'
-                  : 'border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100'
+                  : 'border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-300 dark:hover:bg-rose-900/50'
               }`}
               title={
                 apiOnline
