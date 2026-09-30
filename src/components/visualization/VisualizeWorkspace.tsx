@@ -1,13 +1,5 @@
 import React, { useState } from 'react'
-import {
-  ArrowLeft,
-  BarChart2,
-  PieChart,
-  Database,
-  Play,
-  Activity,
-  FileEdit,
-} from 'lucide-react'
+import { ArrowLeft, BarChart2, PieChart, Database, Play, Activity, FileEdit } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
 import { ChartWorkbench } from '../charts/ChartWorkbench'
@@ -202,7 +194,9 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
                   Automated Hypothesis Testing Not Yet Executed
                 </h3>
                 <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                  Click <strong>Run Statistical Analysis</strong> to automatically test normality (Shapiro-Wilk), homoscedasticity (Levene), select appropriate parametric or non-parametric tests, and compute effect sizes.
+                  Click <strong>Run Statistical Analysis</strong> to automatically test normality
+                  (Shapiro-Wilk), homoscedasticity (Levene), select appropriate parametric or
+                  non-parametric tests, and compute effect sizes.
                 </p>
               </div>
 

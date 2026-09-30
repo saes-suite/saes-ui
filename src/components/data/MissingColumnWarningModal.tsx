@@ -44,8 +44,8 @@ export const MissingColumnWarningModal: React.FC<MissingColumnWarningModalProps>
           </div>
           <DialogDescription className="text-xs text-muted-foreground pt-2 space-y-2">
             <p>
-              The file <strong className="text-foreground font-mono">{filename}</strong> cannot
-              be accepted or processed because it is missing an entire required column:
+              The file <strong className="text-foreground font-mono">{filename}</strong> cannot be
+              accepted or processed because it is missing an entire required column:
             </p>
 
             <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 space-y-1.5">
@@ -63,15 +63,20 @@ export const MissingColumnWarningModal: React.FC<MissingColumnWarningModalProps>
                 ))}
               </div>
               <p className="text-[11px] text-rose-800 pt-1">
-                The file contains only <strong>{columnCount}</strong> column(s), but SAES
-                strictly requires all 6 standard columns: <code className="text-rose-950 font-semibold font-mono text-[10px]">algorithm, instance, metric, run_id, value, maximize</code>.
+                The file contains only <strong>{columnCount}</strong> column(s), but SAES strictly
+                requires all 6 standard columns:{' '}
+                <code className="text-rose-950 font-semibold font-mono text-[10px]">
+                  algorithm, instance, metric, run_id, value, maximize
+                </code>
+                .
               </p>
             </div>
 
             <div className="flex items-center gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs">
               <Trash2 className="w-4 h-4 text-amber-600 shrink-0" />
               <span>
-                <strong>Automatic Action:</strong> The uploaded file has been rejected and discarded to prevent pipeline failures.
+                <strong>Automatic Action:</strong> The uploaded file has been rejected and discarded
+                to prevent pipeline failures.
               </span>
             </div>
           </DialogDescription>

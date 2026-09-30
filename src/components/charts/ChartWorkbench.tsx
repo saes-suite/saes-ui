@@ -294,11 +294,10 @@ export const ChartWorkbench = ({ records, alpha }: ChartWorkbenchProps) => {
         <div className="w-12 h-12 rounded-full bg-primary/10 text-primary mx-auto flex items-center justify-center">
           <BarChart3 className="w-6 h-6" />
         </div>
-        <h3 className="text-base font-semibold text-foreground">
-          No Benchmark Data Loaded
-        </h3>
+        <h3 className="text-base font-semibold text-foreground">No Benchmark Data Loaded</h3>
         <p className="text-xs text-muted-foreground max-w-md mx-auto">
-          Upload a CSV benchmark dataset in the <strong>Data & Validation</strong> tab to visualize algorithmic distributions, violin plots, and empirical cumulative distribution functions.
+          Upload a CSV benchmark dataset in the <strong>Data & Validation</strong> tab to visualize
+          algorithmic distributions, violin plots, and empirical cumulative distribution functions.
         </p>
       </div>
     )
@@ -470,7 +469,8 @@ export const ChartWorkbench = ({ records, alpha }: ChartWorkbenchProps) => {
           />
         ) : (
           <div className="flex items-center justify-center h-80 text-muted-foreground text-xs">
-            No data available for {activeInstance || 'selected instance'} [{activeMetric || 'selected metric'}].
+            No data available for {activeInstance || 'selected instance'} [
+            {activeMetric || 'selected metric'}].
           </div>
         )}
       </div>

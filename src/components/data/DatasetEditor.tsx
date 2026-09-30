@@ -248,9 +248,7 @@ export const DatasetEditor: React.FC<DatasetEditorProps> = ({
           </Button>
           <span className="text-muted-foreground/40">/</span>
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-foreground text-sm sm:text-base">
-              Edit Dataset
-            </span>
+            <span className="font-semibold text-foreground text-sm sm:text-base">Edit Dataset</span>
             <span className="px-2 py-0.5 rounded-md bg-muted text-foreground font-mono text-xs font-medium">
               {filename}
             </span>
@@ -475,9 +473,7 @@ export const DatasetEditor: React.FC<DatasetEditorProps> = ({
                             type="number"
                             step="any"
                             value={isNaN(record.value) ? '' : record.value}
-                            onChange={(e) =>
-                              handleCellChange(actualIndex, 'value', e.target.value)
-                            }
+                            onChange={(e) => handleCellChange(actualIndex, 'value', e.target.value)}
                             className="w-full px-2 py-1 rounded border border-border/60 bg-background text-xs font-mono font-semibold text-emerald-700 focus:border-primary focus:outline-none"
                           />
                         </td>
@@ -521,8 +517,8 @@ export const DatasetEditor: React.FC<DatasetEditorProps> = ({
           <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground">
             <span className="font-mono">
               Showing {filtered.length === 0 ? 0 : page * pageSize + 1}–
-              {Math.min((page + 1) * pageSize, filtered.length)} of {filtered.length.toLocaleString()}{' '}
-              observations
+              {Math.min((page + 1) * pageSize, filtered.length)} of{' '}
+              {filtered.length.toLocaleString()} observations
             </span>
 
             <div className="flex items-center gap-1.5">

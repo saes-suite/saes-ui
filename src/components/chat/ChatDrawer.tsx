@@ -1,9 +1,23 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, Sparkles, X, RotateCcw, Bot, Maximize2, Minimize2 } from 'lucide-react'
+import {
+  Send,
+  Sparkles,
+  X,
+  RotateCcw,
+  Bot,
+  Maximize2,
+  Minimize2,
+  Cpu,
+  Zap,
+  Flame,
+  Layers,
+  Settings,
+} from 'lucide-react'
 import { Button } from '../ui/button'
 import { ChatMessage } from './ChatMessage'
 import { QuickChips } from './QuickChips'
 import { ChatMessageItem } from '../../hooks/useChat'
+import { useAISettings } from '../../context/AISettingsContext'
 
 interface ChatDrawerProps {
   isOpen: boolean
@@ -13,6 +27,7 @@ interface ChatDrawerProps {
   error: string | null
   onSendMessage: (query: string) => void
   onClearHistory: () => void
+  onOpenSettings?: () => void
 }
 
 export const ChatDrawer: React.FC<ChatDrawerProps> = ({
@@ -23,7 +38,9 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   error,
   onSendMessage,
   onClearHistory,
+  onOpenSettings,
 }) => {
+  const { settings: aiSettings } = useAISettings()
   const [input, setInput] = useState('')
   const [isExpanded, setIsExpanded] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -51,6 +68,47 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
 
   if (!isOpen) return null
 
+  const getProviderBadge = () => {
+    if (aiSettings.provider === 'local') {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+          <Cpu className="w-3 h-3" />
+          Local: {aiSettings.localModel}
+        </span>
+      )
+    }
+    if (aiSettings.provider === 'openai') {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] text-sky-600 dark:text-sky-400 font-medium">
+          <Zap className="w-3 h-3" />
+          OpenAI: {aiSettings.openaiModel}
+        </span>
+      )
+    }
+    if (aiSettings.provider === 'anthropic') {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] text-purple-600 dark:text-purple-400 font-medium">
+          <Sparkles className="w-3 h-3" />
+          Claude: {aiSettings.anthropicModel.split('-')[1] || aiSettings.anthropicModel}
+        </span>
+      )
+    }
+    if (aiSettings.provider === 'gemini') {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+          <Flame className="w-3 h-3" />
+          Gemini: {aiSettings.geminiModel}
+        </span>
+      )
+    }
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] text-orange-600 dark:text-orange-400 font-medium">
+        <Layers className="w-3 h-3" />
+        Offline Rules
+      </span>
+    )
+  }
+
   return (
     <div
       className={`fixed bottom-4 right-4 z-50 flex flex-col bg-background/95 backdrop-blur-md border border-border shadow-2xl rounded-2xl overflow-hidden transition-all duration-300 ${
@@ -67,9 +125,17 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
             <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5">
               SAES AI Statistical Consultant
             </h3>
-            <p className="text-[10px] text-muted-foreground">
-              Powered by fast API /api/v1/chat & Statistical Decision Rules
-            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <button
+                type="button"
+                onClick={onOpenSettings}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/60 hover:bg-muted text-[10px] transition-colors border border-border/50 cursor-pointer"
+                title="Configure AI Engine & Models"
+              >
+                {getProviderBadge()}
+                <Settings className="w-2.5 h-2.5 text-muted-foreground ml-0.5" />
+              </button>
+            </div>
           </div>
         </div>
 

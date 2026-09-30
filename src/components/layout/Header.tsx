@@ -16,6 +16,7 @@ interface HeaderProps {
   onRefreshHealth: () => void
   onToggleChat: () => void
   isChatOpen: boolean
+  onOpenSettings?: (tab?: 'server' | 'ai') => void
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -28,6 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
   onRefreshHealth,
   onToggleChat,
   isChatOpen,
+  onOpenSettings,
 }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const { theme, toggleTheme, fontSize, setFontSize } = useAppearance()
@@ -186,7 +188,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Server Status Pill & Settings modal trigger */}
             <button
               type="button"
-              onClick={() => setIsSettingsOpen(true)}
+              onClick={() => (onOpenSettings ? onOpenSettings('server') : setIsSettingsOpen(true))}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs border transition-colors shadow-xs h-9 cursor-pointer ${
                 apiOnline
                   ? 'border-border bg-card hover:bg-muted/50 text-foreground'
@@ -212,13 +214,15 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </header>
 
-      {/* Settings Modal */}
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        apiOnline={apiOnline}
-        onRefreshHealth={onRefreshHealth}
-      />
+      {/* Settings Modal (fallback if onOpenSettings not managed externally) */}
+      {!onOpenSettings && (
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          apiOnline={apiOnline}
+          onRefreshHealth={onRefreshHealth}
+        />
+      )}
     </>
   )
 }

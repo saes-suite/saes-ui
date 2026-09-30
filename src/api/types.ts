@@ -90,16 +90,48 @@ export interface DatasetDetail {
   content: string
 }
 
+export type AIProvider = 'local' | 'openai' | 'anthropic' | 'gemini' | 'offline'
+
+export interface AISettings {
+  provider: AIProvider
+  localBaseUrl: string
+  localModel: string
+  openaiApiKey: string
+  openaiModel: string
+  openaiBaseUrl?: string
+  anthropicApiKey: string
+  anthropicModel: string
+  geminiApiKey: string
+  geminiModel: string
+}
+
 export interface ChatRequest {
   query: string
   dataset_name?: string | null
   csv_data?: string | null
   alpha?: number
+  provider?: AIProvider | string
+  model?: string | null
+  api_key?: string | null
+  base_url?: string | null
 }
 
 export interface ChatResponse {
   response: string
   context_used: boolean
+}
+
+export interface LocalModelsResponse {
+  models: string[]
+  status: string
+}
+
+export interface ProviderProbeResponse {
+  status: string
+  models: string[]
+  message?: string | null
+  can_start_ollama?: boolean
+  binary_path?: string | null
 }
 
 export interface BenchmarkRecord {

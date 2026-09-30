@@ -6,6 +6,7 @@ import {
   DatasetDetail,
   DatasetItem,
   HealthResponse,
+  ProviderProbeResponse,
   ValidationResponse,
 } from './types'
 
@@ -73,7 +74,9 @@ export class SaesApiClient {
    * Get full details and CSV content of a saved dataset
    */
   public async getDataset(filename: string): Promise<DatasetDetail> {
-    const res = await this.client.get<DatasetDetail>(`/api/v1/datasets/${encodeURIComponent(filename)}`)
+    const res = await this.client.get<DatasetDetail>(
+      `/api/v1/datasets/${encodeURIComponent(filename)}`
+    )
     return res.data
   }
 
@@ -185,6 +188,144 @@ export class SaesApiClient {
       },
     })
     return res.data
+  }
+
+  /**
+   * Fetch installed models from local Ollama via backend proxy
+   */
+  public async fetchLocalModels(baseUrl?: string): Promise<string[]> {
+    try {
+      const res = await this.client.get<{ models: string[]; status: string }>(
+        '/api/v1/chat/models/local',
+        {
+          params: baseUrl ? { base_url: baseUrl } : undefined,
+          timeout: 4000,
+        }
+      )
+      return res.data.models || []
+    } catch {
+      return []
+    }
+  }
+
+  /**
+   * Probe AI provider connectivity and dynamically fetch available models
+   */
+  public async probeProvider(
+    provider: string,
+    apiKey?: string,
+    baseUrl?: string
+  ): Promise<ProviderProbeResponse> {
+    const res = await this.client.post<ProviderProbeResponse>('/api/v1/chat/probe', {
+      provider,
+      api_key: apiKey || undefined,
+      base_url: baseUrl || undefined,
+    })
+    return res.data
+  }
+
+  /**
+   * Attempt to start local Ollama server daemon
+   */
+  public async startOllama(): Promise<{ started: boolean }> {
+    const res = await this.client.post<{ started: boolean }>('/api/v1/chat/ollama/start')
+    return res.data
+  }
+
+  /**
+   * Request backend to trigger Ollama model pull/download
+   */
+  public async pullOllamaModel(
+    name: string,
+    baseUrl?: string
+  ): Promise<{ status: string; message: string }> {
+    const res = await this.client.post<{ status: string; message: string }>(
+      '/api/v1/chat/ollama/pull',
+      {
+        name,
+        base_url: baseUrl || undefined,
+      },
+      {
+        timeout: 600000,
+      }
+    )
+    return res.data
+  }
+
+  /**
+   * Request backend to stream Ollama model pull progress
+   */
+  public async pullOllamaModelStream(
+    name: string,
+    baseUrl?: string,
+    onProgress?: (progress: {
+      status: string
+      completed?: number
+      total?: number
+      percent?: number
+    }) => void
+  ): Promise<{ status: string; message: string }> {
+    const targetUrl = `${this.getBaseUrl().replace(/\/+$/, '')}/api/v1/chat/ollama/pull/stream`
+    const res = await fetch(targetUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, base_url: baseUrl || undefined }),
+    })
+
+    if (!res.ok) {
+      throw new Error(`Failed to pull model (HTTP ${res.status})`)
+    }
+
+    if (!res.body) {
+      throw new Error('Server did not provide a streaming response body.')
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder('utf-8')
+    let buffer = ''
+    let lastStatus = 'Downloading...'
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try {
+          const data = JSON.parse(line)
+          if (data.error) {
+            throw new Error(data.error)
+          }
+          if (data.status) {
+            lastStatus = data.status
+          }
+          let percent: number | undefined
+          if (
+            typeof data.total === 'number' &&
+            data.total > 0 &&
+            typeof data.completed === 'number'
+          ) {
+            percent = Math.min(100, Math.round((data.completed / data.total) * 100))
+          }
+          onProgress?.({
+            status: data.status || lastStatus,
+            completed: data.completed,
+            total: data.total,
+            percent,
+          })
+        } catch (e: unknown) {
+          if (e instanceof Error && e.message !== 'Unexpected end of JSON input') {
+            throw e
+          }
+        }
+      }
+    }
+
+    return { status: 'ok', message: `Model '${name}' downloaded successfully.` }
   }
 }
 

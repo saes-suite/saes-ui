@@ -5,14 +5,7 @@ import {
   RowAnalysisResult,
   saveRowEditsToCsv,
 } from '../../lib/datasetInspection'
-import {
-  AlertTriangle,
-  AlertCircle,
-  Trash2,
-  RefreshCw,
-  CheckCircle2,
-  Lock,
-} from 'lucide-react'
+import { AlertTriangle, AlertCircle, Trash2, RefreshCw, CheckCircle2, Lock } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 
@@ -94,7 +87,7 @@ export const ProblematicRowsEditor: React.FC<ProblematicRowsEditorProps> = ({
     const rIdx = row.rowIndex
     COLS.forEach((col) => {
       const currentVal =
-        edits[rIdx]?.[col] !== undefined ? edits[rIdx][col] : row.cells[col] ?? ''
+        edits[rIdx]?.[col] !== undefined ? edits[rIdx][col] : (row.cells[col] ?? '')
       const issue = getCellValidationIssue(col, currentVal)
       if (issue) {
         if (!rowIssuesComputed[rIdx]) rowIssuesComputed[rIdx] = {}
@@ -124,7 +117,8 @@ export const ProblematicRowsEditor: React.FC<ProblematicRowsEditorProps> = ({
               </Badge>
             </div>
             <p className="text-xs text-emerald-800 mt-0.5">
-              No missing cells, NaNs, or type inconsistencies exist. Ready for visualization and statistical analysis.
+              No missing cells, NaNs, or type inconsistencies exist. Ready for visualization and
+              statistical analysis.
             </p>
           </div>
         </div>
@@ -150,7 +144,8 @@ export const ProblematicRowsEditor: React.FC<ProblematicRowsEditorProps> = ({
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Only defective rows are shown. Correct the highlighted cells or drop bad rows, then re-evaluate.
+              Only defective rows are shown. Correct the highlighted cells or drop bad rows, then
+              re-evaluate.
             </p>
           </div>
         </div>
@@ -203,11 +198,13 @@ export const ProblematicRowsEditor: React.FC<ProblematicRowsEditorProps> = ({
       <div className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-2 text-muted-foreground">
           <span className="font-semibold text-foreground">
-            Displaying only the {activeRows.length} row{activeRows.length !== 1 ? 's' : ''} with errors
+            Displaying only the {activeRows.length} row{activeRows.length !== 1 ? 's' : ''} with
+            errors
           </span>
           <span>&bull;</span>
           <span>
-            {rowAnalysis.totalRows.toLocaleString()} total rows in file ({rowAnalysis.validRowsCount.toLocaleString()} valid)
+            {rowAnalysis.totalRows.toLocaleString()} total rows in file (
+            {rowAnalysis.validRowsCount.toLocaleString()} valid)
           </span>
         </div>
 
@@ -273,8 +270,8 @@ export const ProblematicRowsEditor: React.FC<ProblematicRowsEditorProps> = ({
                           issues.algorithm
                             ? 'border-rose-400 bg-rose-50 text-rose-950 font-bold focus:ring-1 focus:ring-rose-500'
                             : isAlgFixed
-                            ? 'border-emerald-400 bg-emerald-50/40 text-emerald-950'
-                            : 'border-border/70 bg-card focus:border-primary'
+                              ? 'border-emerald-400 bg-emerald-50/40 text-emerald-950'
+                              : 'border-border/70 bg-card focus:border-primary'
                         }`}
                       />
                       {issues.algorithm && (
@@ -302,8 +299,8 @@ export const ProblematicRowsEditor: React.FC<ProblematicRowsEditorProps> = ({
                           issues.instance
                             ? 'border-rose-400 bg-rose-50 text-rose-950 font-bold focus:ring-1 focus:ring-rose-500'
                             : isInstFixed
-                            ? 'border-emerald-400 bg-emerald-50/40 text-emerald-950'
-                            : 'border-border/70 bg-card focus:border-primary'
+                              ? 'border-emerald-400 bg-emerald-50/40 text-emerald-950'
+                              : 'border-border/70 bg-card focus:border-primary'
                         }`}
                       />
                       {issues.instance && (
@@ -331,8 +328,8 @@ export const ProblematicRowsEditor: React.FC<ProblematicRowsEditorProps> = ({
                           issues.metric
                             ? 'border-rose-400 bg-rose-50 text-rose-950 font-bold focus:ring-1 focus:ring-rose-500'
                             : isMetrFixed
-                            ? 'border-emerald-400 bg-emerald-50/40 text-emerald-950'
-                            : 'border-border/70 bg-card focus:border-primary'
+                              ? 'border-emerald-400 bg-emerald-50/40 text-emerald-950'
+                              : 'border-border/70 bg-card focus:border-primary'
                         }`}
                       />
                       {issues.metric && (
@@ -360,8 +357,8 @@ export const ProblematicRowsEditor: React.FC<ProblematicRowsEditorProps> = ({
                           issues.run_id
                             ? 'border-rose-400 bg-rose-50 text-rose-950 font-bold focus:ring-1 focus:ring-rose-500'
                             : isRunFixed
-                            ? 'border-emerald-400 bg-emerald-50/40 text-emerald-950'
-                            : 'border-border/70 bg-card focus:border-primary'
+                              ? 'border-emerald-400 bg-emerald-50/40 text-emerald-950'
+                              : 'border-border/70 bg-card focus:border-primary'
                         }`}
                       />
                       {issues.run_id && (
@@ -389,8 +386,8 @@ export const ProblematicRowsEditor: React.FC<ProblematicRowsEditorProps> = ({
                           issues.value
                             ? 'border-rose-400 bg-rose-50 text-rose-950 font-bold focus:ring-1 focus:ring-rose-500'
                             : isValFixed
-                            ? 'border-emerald-400 bg-emerald-50/40 text-emerald-950'
-                            : 'border-border/70 bg-card focus:border-primary'
+                              ? 'border-emerald-400 bg-emerald-50/40 text-emerald-950'
+                              : 'border-border/70 bg-card focus:border-primary'
                         }`}
                       />
                       {issues.value && (
@@ -416,8 +413,8 @@ export const ProblematicRowsEditor: React.FC<ProblematicRowsEditorProps> = ({
                           issues.maximize
                             ? 'border-rose-400 bg-rose-50 text-rose-950 font-bold focus:ring-1 focus:ring-rose-500'
                             : isMaxFixed
-                            ? 'border-emerald-400 bg-emerald-50/40 text-emerald-950'
-                            : 'border-border/70 bg-card focus:border-primary'
+                              ? 'border-emerald-400 bg-emerald-50/40 text-emerald-950'
+                              : 'border-border/70 bg-card focus:border-primary'
                         }`}
                       >
                         <option value="" disabled>
@@ -468,7 +465,10 @@ export const ProblematicRowsEditor: React.FC<ProblematicRowsEditorProps> = ({
         <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>All defective rows were deleted. Click &ldquo;Save &amp; Re-evaluate&rdquo; to finalize.</span>
+            <span>
+              All defective rows were deleted. Click &ldquo;Save &amp; Re-evaluate&rdquo; to
+              finalize.
+            </span>
           </div>
         </div>
       )}

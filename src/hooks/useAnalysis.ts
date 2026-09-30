@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import Papa from 'papaparse'
 import { apiClient } from '../api/client'
 import {
@@ -53,7 +53,13 @@ function parseCsvRecords(csvText: string): BenchmarkRecord[] {
   const records: BenchmarkRecord[] = []
   parsed.data.forEach((row) => {
     // Keep row if at least one identification field is present
-    if (row.algorithm || row.instance || row.metric || row.run_id !== undefined || row.value !== undefined) {
+    if (
+      row.algorithm ||
+      row.instance ||
+      row.metric ||
+      row.run_id !== undefined ||
+      row.value !== undefined
+    ) {
       const parsedVal =
         row.value !== undefined && row.value !== null && row.value !== ''
           ? parseFloat(row.value)
@@ -235,7 +241,9 @@ export function useAnalysis() {
             const isValid = isStructValid && isRowsValid && backendOk
             validityMap[item.filename] = {
               isValid,
-              errorCount: isValid ? 0 : Math.max(1, rowCheck.problematicRowsCount + (isStructValid ? 0 : 1)),
+              errorCount: isValid
+                ? 0
+                : Math.max(1, rowCheck.problematicRowsCount + (isStructValid ? 0 : 1)),
               warningCount: 0,
               missingColumns: structure.missingColumnsList,
             }
@@ -260,23 +268,31 @@ export function useAnalysis() {
     }
   }, [])
 
-  // Check API health on startup and periodically
+  const apiOnlineRef = useRef(false)
+  const initialDatasetsFetchedRef = useRef(false)
+
+  // Check API health on startup and periodically (without re-fetching and re-validating all datasets repeatedly)
   const checkHealth = useCallback(async () => {
     try {
       const res = await apiClient.getHealth()
       const isOnline = res.status === 'ok'
+      const wasOnline = apiOnlineRef.current
+      apiOnlineRef.current = isOnline
       setState((prev) => ({ ...prev, apiOnline: isOnline }))
-      if (isOnline) {
+      // Fetch datasets only on initial connect or when connection is restored after being offline
+      if (isOnline && (!initialDatasetsFetchedRef.current || !wasOnline)) {
+        initialDatasetsFetchedRef.current = true
         fetchDatasets()
       }
     } catch {
+      apiOnlineRef.current = false
       setState((prev) => ({ ...prev, apiOnline: false }))
     }
   }, [fetchDatasets])
 
   useEffect(() => {
     checkHealth()
-    const timer = setInterval(checkHealth, 15000)
+    const timer = setInterval(checkHealth, 30000)
     return () => clearInterval(timer)
   }, [checkHealth])
 
@@ -311,60 +327,56 @@ export function useAnalysis() {
   }, [])
 
   // Select an existing dataset from the backend path and validate it
-  const selectDataset = useCallback(
-    async (filename: string) => {
-      if (!filename) {
-        setState((prev) => ({
-          ...prev,
-          rawCsv: '',
-          filename: '',
-          records: [],
-          summary: null,
-          validation: null,
-          analysis: null,
-          selectedDatasetFilename: null,
-        }))
-        return
-      }
+  const selectDataset = useCallback(async (filename: string) => {
+    if (!filename) {
+      setState((prev) => ({
+        ...prev,
+        rawCsv: '',
+        filename: '',
+        records: [],
+        summary: null,
+        validation: null,
+        analysis: null,
+        selectedDatasetFilename: null,
+      }))
+      return
+    }
 
+    try {
+      const detail = await apiClient.getDataset(filename)
+      const records = parseCsvRecords(detail.content)
+      const summary = computeSummary(records, detail.filename)
+
+      let validation: ValidationResponse
       try {
-        const detail = await apiClient.getDataset(filename)
-        const records = parseCsvRecords(detail.content)
-        const summary = computeSummary(records, detail.filename)
-
-        let validation: ValidationResponse
-        try {
-          const backendVal = await apiClient.validateDatasetFromPath(detail.filename)
-          validation = buildValidationReport(backendVal, detail.content)
-        } catch {
-          validation = buildValidationReport(null, detail.content)
-        }
-
-        setState((prev) => ({
-          ...prev,
-          rawCsv: detail.content,
-          filename: detail.filename,
-          records,
-          summary,
-          selectedDatasetFilename: detail.filename,
-          validation,
-          analysis: null,
-        }))
-      } catch (err: unknown) {
-        setState((prev) => ({
-          ...prev,
-          error: `Failed to load dataset '${filename}': ${err instanceof Error ? err.message : String(err)}`,
-        }))
+        const backendVal = await apiClient.validateDatasetFromPath(detail.filename)
+        validation = buildValidationReport(backendVal, detail.content)
+      } catch {
+        validation = buildValidationReport(null, detail.content)
       }
-    },
-    []
-  )
+
+      setState((prev) => ({
+        ...prev,
+        rawCsv: detail.content,
+        filename: detail.filename,
+        records,
+        summary,
+        selectedDatasetFilename: detail.filename,
+        validation,
+        analysis: null,
+      }))
+    } catch (err: unknown) {
+      setState((prev) => ({
+        ...prev,
+        error: `Failed to load dataset '${filename}': ${err instanceof Error ? err.message : String(err)}`,
+      }))
+    }
+  }, [])
 
   // Upload a new dataset: persists, loads, and immediately validates without race conditions
   const uploadAndLoadDataset = useCallback(
     async (fileOrContent: File | string, filename: string = 'benchmark.csv') => {
-      const csvText =
-        typeof fileOrContent === 'string' ? fileOrContent : await fileOrContent.text()
+      const csvText = typeof fileOrContent === 'string' ? fileOrContent : await fileOrContent.text()
 
       const records = parseCsvRecords(csvText)
       const summary = computeSummary(records, filename)
@@ -631,7 +643,14 @@ export function useAnalysis() {
         error: `Analysis execution failed: ${err instanceof Error ? err.message : String(err)}`,
       }))
     }
-  }, [state.rawCsv, state.records, state.alpha, state.filename, state.selectedDatasetFilename, state.apiOnline])
+  }, [
+    state.rawCsv,
+    state.records,
+    state.alpha,
+    state.filename,
+    state.selectedDatasetFilename,
+    state.apiOnline,
+  ])
 
   return {
     ...state,

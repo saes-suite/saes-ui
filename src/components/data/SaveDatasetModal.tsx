@@ -38,11 +38,11 @@ export const SaveDatasetModal: React.FC<SaveDatasetModalProps> = ({
   // Check if filename already exists
   const isConflict = Boolean(
     targetFilename &&
-      existingDatasets.some(
-        (d) =>
-          d.filename.toLowerCase() === targetFilename.toLowerCase() ||
-          d.name.toLowerCase() === cleanStem.toLowerCase()
-      )
+    existingDatasets.some(
+      (d) =>
+        d.filename.toLowerCase() === targetFilename.toLowerCase() ||
+        d.name.toLowerCase() === cleanStem.toLowerCase()
+    )
   )
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -73,7 +73,10 @@ export const SaveDatasetModal: React.FC<SaveDatasetModalProps> = ({
           {/* Form Body */}
           <div className="p-6 space-y-4">
             <div className="space-y-1.5">
-              <label htmlFor="dataset-name-input" className="block text-xs font-semibold text-foreground">
+              <label
+                htmlFor="dataset-name-input"
+                className="block text-xs font-semibold text-foreground"
+              >
                 Dataset Name
               </label>
               <div className="flex items-center rounded-lg border border-input bg-background shadow-xs focus-within:ring-2 focus-within:ring-primary focus-within:border-primary">
@@ -106,8 +109,10 @@ export const SaveDatasetModal: React.FC<SaveDatasetModalProps> = ({
                   <span>Dataset Already Exists</span>
                 </div>
                 <p className="text-xs text-amber-800 leading-relaxed">
-                  A dataset named <span className="font-mono font-bold">&ldquo;{targetFilename}&rdquo;</span> already
-                  exists in your workspace. Saving with this name will replace the existing file.
+                  A dataset named{' '}
+                  <span className="font-mono font-bold">&ldquo;{targetFilename}&rdquo;</span>{' '}
+                  already exists in your workspace. Saving with this name will replace the existing
+                  file.
                 </p>
               </div>
             )}
@@ -136,11 +141,7 @@ export const SaveDatasetModal: React.FC<SaveDatasetModalProps> = ({
               }`}
             >
               <Save className="w-3.5 h-3.5" />
-              {isSubmitting
-                ? 'Saving...'
-                : isConflict
-                  ? 'Replace & Save'
-                  : 'Save Dataset'}
+              {isSubmitting ? 'Saving...' : isConflict ? 'Replace & Save' : 'Save Dataset'}
             </Button>
           </div>
         </form>

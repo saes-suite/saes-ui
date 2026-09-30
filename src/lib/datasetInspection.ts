@@ -127,15 +127,24 @@ export function analyzeColumnData(name: string, index: number, values: string[])
   }
 
   // 1. Test for Boolean
-  const WORD_BOOLEANS = new Set(['true', 'false', 'yes', 'no', 'y', 'n', 't', 'f', 'si', 'max', 'min'])
+  const WORD_BOOLEANS = new Set([
+    'true',
+    'false',
+    'yes',
+    'no',
+    'y',
+    'n',
+    't',
+    'f',
+    'si',
+    'max',
+    'min',
+  ])
   const hasWordBoolean = nonEmptyValues.some((v) => WORD_BOOLEANS.has(v.toLowerCase()))
   const boolMatches = nonEmptyValues.filter((v) => BOOLEAN_KEYWORDS.has(v.toLowerCase()))
   const isHeaderBoolean = /^(is_|has_|flag|max|opt|dir)/i.test(name)
 
-  if (
-    boolMatches.length / nonEmptyValues.length >= 0.9 &&
-    (hasWordBoolean || isHeaderBoolean)
-  ) {
+  if (boolMatches.length / nonEmptyValues.length >= 0.9 && (hasWordBoolean || isHeaderBoolean)) {
     const distinctBools = Array.from(new Set(nonEmptyValues.map((v) => v.toLowerCase())))
     if (distinctBools.length <= 4) {
       return {
@@ -283,7 +292,8 @@ export function inspectDatasetStructure(rawCsv: string): DatasetStructureResult 
   const unmatchedRequired = REQUIRED_COLUMNS.filter((req) => !matchedColumns[req])
   const unmappedHeaders = rawHeaders.filter((h) => !usedHeaders.has(h))
 
-  const isExactSchemaMatch = unmatchedRequired.length === 0 && columnCount >= REQUIRED_COLUMNS.length
+  const isExactSchemaMatch =
+    unmatchedRequired.length === 0 && columnCount >= REQUIRED_COLUMNS.length
 
   // Case 1: Falta una columna entera (columnCount < 6)
   // O el número total de columnas es menor que las requeridas
@@ -317,34 +327,86 @@ export function inspectDatasetStructure(rawCsv: string): DatasetStructureResult 
       switch (reqCol) {
         case 'maximize':
           if (analysis.detectedType === 'boolean') score += 60
-          if (lower.includes('max') || lower.includes('opt') || lower.includes('dir') || lower.includes('goal')) score += 40
+          if (
+            lower.includes('max') ||
+            lower.includes('opt') ||
+            lower.includes('dir') ||
+            lower.includes('goal')
+          )
+            score += 40
           break
 
         case 'run_id':
           if (analysis.detectedType === 'integer') score += 50
-          if (analysis.numericRange && analysis.numericRange.min >= 0 && analysis.numericRange.max <= 1000) score += 20
-          if (lower.includes('run') || lower.includes('rep') || lower.includes('iter') || lower.includes('id') || lower.includes('trial') || lower.includes('seed') || lower.includes('ejec')) score += 40
+          if (
+            analysis.numericRange &&
+            analysis.numericRange.min >= 0 &&
+            analysis.numericRange.max <= 1000
+          )
+            score += 20
+          if (
+            lower.includes('run') ||
+            lower.includes('rep') ||
+            lower.includes('iter') ||
+            lower.includes('id') ||
+            lower.includes('trial') ||
+            lower.includes('seed') ||
+            lower.includes('ejec')
+          )
+            score += 40
           break
 
         case 'value':
           if (analysis.detectedType === 'float') score += 60
           else if (analysis.detectedType === 'integer') score += 20
-          if (lower.includes('val') || lower.includes('fit') || lower.includes('score') || lower.includes('res') || lower.includes('perf') || lower.includes('obj') || lower.includes('cost') || lower.includes('loss')) score += 40
+          if (
+            lower.includes('val') ||
+            lower.includes('fit') ||
+            lower.includes('score') ||
+            lower.includes('res') ||
+            lower.includes('perf') ||
+            lower.includes('obj') ||
+            lower.includes('cost') ||
+            lower.includes('loss')
+          )
+            score += 40
           break
 
         case 'algorithm':
           if (analysis.detectedType === 'categorical') score += 40
-          if (lower.includes('alg') || lower.includes('model') || lower.includes('solver') || lower.includes('method') || lower.includes('technique')) score += 50
+          if (
+            lower.includes('alg') ||
+            lower.includes('model') ||
+            lower.includes('solver') ||
+            lower.includes('method') ||
+            lower.includes('technique')
+          )
+            score += 50
           break
 
         case 'instance':
           if (analysis.detectedType === 'categorical') score += 40
-          if (lower.includes('inst') || lower.includes('prob') || lower.includes('dataset') || lower.includes('bench') || lower.includes('func') || lower.includes('case') || lower.includes('task')) score += 50
+          if (
+            lower.includes('inst') ||
+            lower.includes('prob') ||
+            lower.includes('dataset') ||
+            lower.includes('bench') ||
+            lower.includes('func') ||
+            lower.includes('case') ||
+            lower.includes('task')
+          )
+            score += 50
           break
 
         case 'metric':
           if (analysis.detectedType === 'categorical') score += 40
-          if (lower.includes('metr') || lower.includes('meas') || lower.includes('indic') || lower.includes('criterion')) score += 50
+          if (
+            lower.includes('metr') ||
+            lower.includes('meas') ||
+            lower.includes('indic') ||
+            lower.includes('criterion')
+          )
+            score += 50
           break
       }
 
@@ -352,7 +414,14 @@ export function inspectDatasetStructure(rawCsv: string): DatasetStructureResult 
     }
 
     // Match priority order: specialized types first (maximize, run_id, value), then categoricals
-    const priorityOrder: RequiredColumn[] = ['maximize', 'run_id', 'value', 'algorithm', 'instance', 'metric']
+    const priorityOrder: RequiredColumn[] = [
+      'maximize',
+      'run_id',
+      'value',
+      'algorithm',
+      'instance',
+      'metric',
+    ]
 
     for (const req of priorityOrder) {
       if (!suggestedMapping[req] && availableCandidates.length > 0) {
@@ -701,7 +770,9 @@ export function analyzeRowByRow(rawCsv: string): RowAnalysisResult {
     }
   }
 
-  result.problematicRows = Array.from(problematicRowsMap.values()).sort((a, b) => a.rowIndex - b.rowIndex)
+  result.problematicRows = Array.from(problematicRowsMap.values()).sort(
+    (a, b) => a.rowIndex - b.rowIndex
+  )
   result.problematicRowsCount = result.problematicRows.length
   result.problematicRowIndices = result.problematicRows.map((r) => r.rowIndex)
   result.validRowsCount = Math.max(0, result.totalRows - result.problematicRowsCount)
@@ -715,7 +786,10 @@ export function analyzeRowByRow(rawCsv: string): RowAnalysisResult {
 /**
  * Removes all problematic rows from the CSV, leaving only 100% valid rows.
  */
-export function cleanProblematicRows(rawCsv: string): { cleanedCsv: string; droppedRowsCount: number } {
+export function cleanProblematicRows(rawCsv: string): {
+  cleanedCsv: string
+  droppedRowsCount: number
+} {
   const analysis = analyzeRowByRow(rawCsv)
   if (analysis.problematicRowsCount === 0) {
     return { cleanedCsv: rawCsv, droppedRowsCount: 0 }
@@ -826,4 +900,3 @@ export function getCellValidationIssue(column: string, value: string): CellIssue
   }
   return null
 }
-

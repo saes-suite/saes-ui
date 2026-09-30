@@ -1,13 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import {
-  ArrowLeft,
-  AlertTriangle,
-  Trash2,
-  CheckCircle2,
-  Lock,
-  Save,
-  Check,
-} from 'lucide-react'
+import { ArrowLeft, AlertTriangle, Trash2, CheckCircle2, Lock, Save, Check } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import {
@@ -64,9 +56,7 @@ export const ProblematicRowsFixerView: React.FC<ProblematicRowsFixerViewProps> =
   }
 
   // Active defective rows (excluding any deleted locally)
-  const activeRows = baseAnalysis.problematicRows.filter(
-    (r) => !deletedIndices.has(r.rowIndex)
-  )
+  const activeRows = baseAnalysis.problematicRows.filter((r) => !deletedIndices.has(r.rowIndex))
 
   // Check remaining issues across active defective rows
   let totalIssuesCount = 0
@@ -76,7 +66,7 @@ export const ProblematicRowsFixerView: React.FC<ProblematicRowsFixerViewProps> =
     const rIdx = row.rowIndex
     COLS.forEach((col) => {
       const currentVal =
-        edits[rIdx]?.[col] !== undefined ? edits[rIdx][col] : row.cells[col] ?? ''
+        edits[rIdx]?.[col] !== undefined ? edits[rIdx][col] : (row.cells[col] ?? '')
       const issue = getCellValidationIssue(col, currentVal)
       if (issue) {
         if (!rowIssuesComputed[rIdx]) rowIssuesComputed[rIdx] = {}
@@ -147,7 +137,9 @@ export const ProblematicRowsFixerView: React.FC<ProblematicRowsFixerViewProps> =
             {!isClean ? (
               <>
                 <Lock className="w-3.5 h-3.5 text-rose-500" />
-                <span>Fix {totalIssuesCount} Error{totalIssuesCount !== 1 ? 's' : ''} to Save</span>
+                <span>
+                  Fix {totalIssuesCount} Error{totalIssuesCount !== 1 ? 's' : ''} to Save
+                </span>
               </>
             ) : (
               <>
@@ -176,7 +168,8 @@ export const ProblematicRowsFixerView: React.FC<ProblematicRowsFixerViewProps> =
                 </Badge>
               </div>
               <p className="text-xs text-emerald-800 mt-0.5">
-                All defective cells have been corrected or dropped. Click &ldquo;Save &amp; Continue to Visualize&rdquo; above to persist this dataset.
+                All defective cells have been corrected or dropped. Click &ldquo;Save &amp; Continue
+                to Visualize&rdquo; above to persist this dataset.
               </p>
             </div>
           </div>
@@ -199,7 +192,8 @@ export const ProblematicRowsFixerView: React.FC<ProblematicRowsFixerViewProps> =
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Datasets with errors cannot be saved or analyzed. Edit the highlighted cells or drop defective rows.
+                  Datasets with errors cannot be saved or analyzed. Edit the highlighted cells or
+                  drop defective rows.
                 </p>
               </div>
             </div>

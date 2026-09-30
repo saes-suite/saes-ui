@@ -12,6 +12,7 @@ import { MissingColumnWarningModal } from './components/data/MissingColumnWarnin
 import { ColumnMappingModal } from './components/data/ColumnMappingModal'
 import { ProblematicRowsFixerView } from './components/data/ProblematicRowsFixerView'
 import { SaveDatasetModal } from './components/data/SaveDatasetModal'
+import { SettingsModal } from './components/layout/SettingsModal'
 import {
   inspectDatasetStructure,
   applyColumnMapping,
@@ -48,6 +49,11 @@ export function App() {
     structureResult: DatasetStructureResult
     rawContent: string
   } | null>(null)
+
+  const [settingsModal, setSettingsModal] = useState<{
+    isOpen: boolean
+    initialTab: 'server' | 'ai'
+  }>({ isOpen: false, initialTab: 'server' })
 
   const {
     rawCsv,
@@ -96,8 +102,7 @@ export function App() {
 
   // Handle new dataset upload: intelligently check structure, missing columns, or mapping needs
   const handleUpload = async (fileOrContent: File | string, uploadFilename: string) => {
-    const csvText =
-      typeof fileOrContent === 'string' ? fileOrContent : await fileOrContent.text()
+    const csvText = typeof fileOrContent === 'string' ? fileOrContent : await fileOrContent.text()
 
     // 1. Inspect dataset structure immediately
     const structure = inspectDatasetStructure(csvText)
@@ -219,6 +224,7 @@ export function App() {
         onRefreshHealth={checkHealth}
         onToggleChat={() => setIsChatOpen(!isChatOpen)}
         isChatOpen={isChatOpen}
+        onOpenSettings={(tab) => setSettingsModal({ isOpen: true, initialTab: tab || 'server' })}
       />
 
       {/* API Offline Warning Banner */}
@@ -228,7 +234,8 @@ export function App() {
             <WifiOff className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
             <span>
               <strong>Backend API Disconnected:</strong> The SAES backend service is offline.
-              Connect to http://127.0.0.1:8000 for schema validation and automated hypothesis testing.
+              Connect to http://127.0.0.1:8000 for schema validation and automated hypothesis
+              testing.
             </span>
           </div>
           <button
@@ -354,6 +361,16 @@ export function App() {
         error={chatError}
         onSendMessage={sendChatMessage}
         onClearHistory={clearChatHistory}
+        onOpenSettings={() => setSettingsModal({ isOpen: true, initialTab: 'ai' })}
+      />
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={settingsModal.isOpen}
+        onClose={() => setSettingsModal((prev) => ({ ...prev, isOpen: false }))}
+        apiOnline={apiOnline}
+        onRefreshHealth={checkHealth}
+        initialTab={settingsModal.initialTab}
       />
 
       {/* Case 1: Missing Column Rejection Warning Modal */}

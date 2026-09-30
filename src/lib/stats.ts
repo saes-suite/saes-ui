@@ -104,7 +104,7 @@ export function enrichCellWithAssumptions(
       ? (cell.assumptions as unknown as { name: string; p_value: number; passed: boolean }[])
       : []
   const leveneRes = rawAssumptions.find((a) => a.name.toLowerCase().includes('levene'))
-  const levenePValue = leveneRes ? leveneRes.p_value : (homoscedasticityPassed ? 0.342 : 0.018)
+  const levenePValue = leveneRes ? leveneRes.p_value : homoscedasticityPassed ? 0.342 : 0.018
   const finalHomoPassed = leveneRes ? leveneRes.passed : homoscedasticityPassed
 
   rawAssumptions.forEach((a) => {

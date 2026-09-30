@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { apiClient } from '../api/client'
 import { AnalysisResponse, CellAnalysis } from '../api/types'
+import { useAISettings } from '../context/AISettingsContext'
 
 export interface ChatMessageItem {
   id: string
@@ -16,6 +17,7 @@ export function useChat(
   alpha: number = 0.05,
   datasetName: string | null = null
 ) {
+  const { settings: aiSettings } = useAISettings()
   const [messages, setMessages] = useState<ChatMessageItem[]>([
     {
       id: 'welcome',
@@ -51,6 +53,26 @@ Try one of the quick suggestions below or ask any question about your algorithmi
         let answer = ''
         let contextUsed = false
 
+        // Determine AI parameters from active settings
+        let model: string | undefined
+        let apiKey: string | undefined
+        let baseUrl: string | undefined
+
+        if (aiSettings.provider === 'local') {
+          model = aiSettings.localModel
+          baseUrl = aiSettings.localBaseUrl
+        } else if (aiSettings.provider === 'openai') {
+          model = aiSettings.openaiModel
+          apiKey = aiSettings.openaiApiKey || undefined
+          baseUrl = aiSettings.openaiBaseUrl || undefined
+        } else if (aiSettings.provider === 'anthropic') {
+          model = aiSettings.anthropicModel
+          apiKey = aiSettings.anthropicApiKey || undefined
+        } else if (aiSettings.provider === 'gemini') {
+          model = aiSettings.geminiModel
+          apiKey = aiSettings.geminiApiKey || undefined
+        }
+
         // Try calling the FastAPI backend /api/v1/chat
         try {
           const res = await apiClient.chat({
@@ -58,6 +80,10 @@ Try one of the quick suggestions below or ask any question about your algorithmi
             dataset_name: datasetName || undefined,
             csv_data: rawCsv || undefined,
             alpha: alpha,
+            provider: aiSettings.provider,
+            model,
+            api_key: apiKey,
+            base_url: baseUrl,
           })
           answer = res.response
           contextUsed = res.context_used
@@ -87,7 +113,7 @@ Try one of the quick suggestions below or ask any question about your algorithmi
         setIsLoading(false)
       }
     },
-    [rawCsv, analysis, alpha, datasetName]
+    [rawCsv, analysis, alpha, datasetName, aiSettings]
   )
 
   const clearHistory = useCallback(() => {

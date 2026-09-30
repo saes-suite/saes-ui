@@ -5,6 +5,7 @@ import App from './App'
 import './styles/index.css'
 
 import { AppearanceProvider } from './context/AppearanceContext'
+import { AISettingsProvider } from './context/AISettingsContext'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,7 +20,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <AppearanceProvider>
-        <App />
+        <AISettingsProvider>
+          <App />
+        </AISettingsProvider>
       </AppearanceProvider>
     </QueryClientProvider>
   </React.StrictMode>

@@ -115,25 +115,37 @@ export const ColumnMappingModal: React.FC<ColumnMappingModalProps> = ({
     switch (type) {
       case 'categorical':
         return (
-          <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200 text-[10px] gap-1">
+          <Badge
+            variant="outline"
+            className="bg-sky-50 text-sky-700 border-sky-200 text-[10px] gap-1"
+          >
             <Tag className="w-2.5 h-2.5" /> Categorical
           </Badge>
         )
       case 'integer':
         return (
-          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] gap-1">
+          <Badge
+            variant="outline"
+            className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] gap-1"
+          >
             <Hash className="w-2.5 h-2.5" /> Integer
           </Badge>
         )
       case 'float':
         return (
-          <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px] gap-1">
+          <Badge
+            variant="outline"
+            className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px] gap-1"
+          >
             <Activity className="w-2.5 h-2.5" /> Float/Numeric
           </Badge>
         )
       case 'boolean':
         return (
-          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] gap-1">
+          <Badge
+            variant="outline"
+            className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] gap-1"
+          >
             <CheckSquare className="w-2.5 h-2.5" /> Boolean
           </Badge>
         )
@@ -164,7 +176,8 @@ export const ColumnMappingModal: React.FC<ColumnMappingModalProps> = ({
                   </Badge>
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  File: <strong className="text-foreground font-mono">{filename}</strong> ({structureResult.columnCount} columns detected)
+                  File: <strong className="text-foreground font-mono">{filename}</strong> (
+                  {structureResult.columnCount} columns detected)
                 </DialogDescription>
               </div>
             </div>
@@ -173,9 +186,7 @@ export const ColumnMappingModal: React.FC<ColumnMappingModalProps> = ({
             <div className="flex items-center gap-2 text-xs font-medium">
               <span
                 className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                  step === 1
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-emerald-600 text-white'
+                  step === 1 ? 'bg-primary text-primary-foreground' : 'bg-emerald-600 text-white'
                 }`}
               >
                 1
@@ -206,7 +217,9 @@ export const ColumnMappingModal: React.FC<ColumnMappingModalProps> = ({
                     Structure detected with {structureResult.columnCount} columns
                   </p>
                   <p className="text-[11px] text-sky-800 mt-0.5">
-                    Your file headers differ from standard SAES names. We analyzed data types across all rows to recommend the optimal mapping. Review or adjust each column assignment below:
+                    Your file headers differ from standard SAES names. We analyzed data types across
+                    all rows to recommend the optimal mapping. Review or adjust each column
+                    assignment below:
                   </p>
                 </div>
               </div>
@@ -215,7 +228,8 @@ export const ColumnMappingModal: React.FC<ColumnMappingModalProps> = ({
                 <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
                   <span>
-                    <strong>Duplicate mapping:</strong> Multiple SAES fields are mapped to the same column. Each field must be mapped uniquely.
+                    <strong>Duplicate mapping:</strong> Multiple SAES fields are mapped to the same
+                    column. Each field must be mapped uniquely.
                   </span>
                 </div>
               )}
@@ -286,7 +300,8 @@ export const ColumnMappingModal: React.FC<ColumnMappingModalProps> = ({
                           <div className="flex items-center gap-1.5 text-[10px] text-amber-700">
                             <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
                             <span>
-                              Detected type ({selectedAnalysis.detectedType}) differs from recommended ({info.expectedType})
+                              Detected type ({selectedAnalysis.detectedType}) differs from
+                              recommended ({info.expectedType})
                             </span>
                           </div>
                         )}
@@ -308,7 +323,8 @@ export const ColumnMappingModal: React.FC<ColumnMappingModalProps> = ({
                     Final Mapping & Type Verification
                   </p>
                   <p className="text-[11px] text-emerald-800 mt-0.5">
-                    Below is the column-by-column breakdown: mapped SAES field, detected type, and identified categories or sample ranges.
+                    Below is the column-by-column breakdown: mapped SAES field, detected type, and
+                    identified categories or sample ranges.
                   </p>
                 </div>
               </div>
@@ -351,7 +367,7 @@ export const ColumnMappingModal: React.FC<ColumnMappingModalProps> = ({
                             <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto pr-1">
                               {analysis.categories.slice(0, 8).map((cat) => (
                                 <span
-                                   key={cat}
+                                  key={cat}
                                   className="px-1.5 py-0.5 rounded bg-sky-50 border border-sky-200 text-sky-800 font-mono text-[10px]"
                                 >
                                   {cat}

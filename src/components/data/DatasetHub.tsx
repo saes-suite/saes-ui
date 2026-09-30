@@ -179,7 +179,10 @@ export const DatasetHub: React.FC<DatasetHubProps> = ({
           Drop your benchmark CSV file here, or browse
         </h3>
         <p className="text-xs text-muted-foreground max-w-md mb-4">
-          SAES schema: <code className="text-primary font-medium text-[11px]">algorithm, instance, metric, run_id, value, maximize</code>
+          SAES schema:{' '}
+          <code className="text-primary font-medium text-[11px]">
+            algorithm, instance, metric, run_id, value, maximize
+          </code>
         </p>
 
         <div className="flex items-center gap-2">
@@ -356,7 +359,9 @@ export const DatasetHub: React.FC<DatasetHubProps> = ({
                         }`}
                         title="Edit dataset entries or fix schema issues"
                       >
-                        <FileEdit className={`w-3.5 h-3.5 ${!isDatasetValid ? 'text-amber-700' : 'text-muted-foreground'}`} />
+                        <FileEdit
+                          className={`w-3.5 h-3.5 ${!isDatasetValid ? 'text-amber-700' : 'text-muted-foreground'}`}
+                        />
                         {!isDatasetValid ? 'Review / Fix' : 'Edit'}
                       </Button>
 
@@ -389,7 +394,8 @@ export const DatasetHub: React.FC<DatasetHubProps> = ({
             <div className="space-y-1">
               <h4 className="text-base font-semibold text-foreground">No Datasets Found</h4>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                Use the upload box above to add your first benchmark CSV dataset and start statistical analysis.
+                Use the upload box above to add your first benchmark CSV dataset and start
+                statistical analysis.
               </p>
             </div>
           </div>
