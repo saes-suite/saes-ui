@@ -1,7 +1,6 @@
 import React, { useRef, useState, useMemo } from 'react'
 import {
   Upload,
-  FolderOpen,
   Database,
   Trash2,
   FileEdit,
@@ -81,6 +80,10 @@ export const DatasetHub: React.FC<DatasetHubProps> = ({
       const file = e.target.files[0]
       processFile(file)
     }
+    // Reset value so selecting the same file again triggers change event
+    if (e.target) {
+      e.target.value = ''
+    }
   }
 
   const processFile = (file: File) => {
@@ -98,6 +101,14 @@ export const DatasetHub: React.FC<DatasetHubProps> = ({
     const result = await onOpenDesktopDialog()
     if (result) {
       onUpload(result.content, result.filename)
+    }
+  }
+
+  const handleOpenFileDialog = () => {
+    if (isTauri) {
+      handleDesktopPick()
+    } else {
+      fileInputRef.current?.click()
     }
   }
 
@@ -160,12 +171,21 @@ export const DatasetHub: React.FC<DatasetHubProps> = ({
         className="hidden"
       />
 
-      {/* Upload Dropzone: Clean, modern, not overwhelming */}
+      {/* Upload Dropzone: Clean, modern, clickable & drag-and-drop */}
       <div
+        onClick={handleOpenFileDialog}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`group relative flex flex-col items-center justify-center p-7 border-2 border-dashed rounded-xl transition-all duration-200 text-center ${
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            handleOpenFileDialog()
+          }
+        }}
+        className={`group relative flex flex-col items-center justify-center p-7 border-2 border-dashed rounded-xl transition-all duration-200 text-center cursor-pointer select-none ${
           isDragging
             ? 'border-primary bg-primary/5 scale-[1.005]'
             : 'border-border/80 bg-card hover:bg-card/80 hover:border-primary/50 shadow-sm'
@@ -176,43 +196,15 @@ export const DatasetHub: React.FC<DatasetHubProps> = ({
         </div>
 
         <h3 className="text-sm font-semibold text-foreground mb-1">
-          Drop your benchmark CSV file here, or browse
+          Drop your benchmark CSV file here, or{' '}
+          <span className="text-primary underline underline-offset-2">browse</span>
         </h3>
-        <p className="text-xs text-muted-foreground max-w-md mb-4">
-          SAES schema:{' '}
-          <code className="text-primary font-medium text-[11px]">
-            algorithm, instance, metric, run_id, value, maximize
-          </code>
-        </p>
-
-        <div className="flex items-center gap-2">
-          {isTauri ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleDesktopPick}
-              className="gap-1.5 text-xs bg-background"
-            >
-              <FolderOpen className="w-3.5 h-3.5" />
-              Choose File
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              className="gap-1.5 text-xs bg-background"
-            >
-              <FolderOpen className="w-3.5 h-3.5" />
-              Browse Files
-            </Button>
-          )}
-        </div>
 
         {!apiOnline && (
-          <div className="mt-4 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="mt-4 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg"
+          >
             <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
             <span>API connection required to validate and save uploaded datasets.</span>
           </div>
@@ -268,7 +260,7 @@ export const DatasetHub: React.FC<DatasetHubProps> = ({
                   {/* Top info */}
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-start gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div
                           className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border ${
                             !isDatasetValid
@@ -281,13 +273,10 @@ export const DatasetHub: React.FC<DatasetHubProps> = ({
                         <div className="min-w-0">
                           <h4
                             className="text-sm font-semibold text-foreground truncate"
-                            title={dataset.filename}
+                            title={dataset.name.replace(/\.csv$/i, '')}
                           >
-                            {dataset.name}
+                            {dataset.name.replace(/\.csv$/i, '')}
                           </h4>
-                          <span className="text-[11px] text-muted-foreground font-mono block truncate">
-                            {dataset.filename}
-                          </span>
                         </div>
                       </div>
 

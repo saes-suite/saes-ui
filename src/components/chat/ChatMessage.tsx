@@ -43,7 +43,26 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
           <span className="text-[10px] text-muted-foreground">{message.timestamp}</span>
         </div>
 
-        <MathRenderer content={message.content} />
+        <div className="relative">
+          {message.content ? (
+            <MathRenderer content={message.content} />
+          ) : (
+            isBot &&
+            message.isStreaming && (
+              <div className="flex items-center gap-1.5 py-1 text-muted-foreground text-xs">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce" />
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce [animation-delay:0.15s]" />
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary/70 animate-bounce [animation-delay:0.3s]" />
+                <span className="text-[11px] ml-1 text-muted-foreground/80">
+                  Analyzing benchmark...
+                </span>
+              </div>
+            )
+          )}
+          {message.content && isBot && message.isStreaming && (
+            <span className="inline-block w-1.5 h-3.5 bg-primary/80 animate-pulse ml-0.5 align-middle rounded-[1px]" />
+          )}
+        </div>
       </div>
     </div>
   )

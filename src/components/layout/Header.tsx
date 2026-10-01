@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { AppWindow, Database, Globe, Moon, Settings, Sparkles, Sun } from 'lucide-react'
+import { AppWindow, Database, Globe, Moon, Settings, Sun } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { SettingsModal } from './SettingsModal'
@@ -14,8 +14,8 @@ interface HeaderProps {
   onNavigateHub: () => void
   onSelectDataset: (filename: string) => void
   onRefreshHealth: () => void
-  onToggleChat: () => void
-  isChatOpen: boolean
+  onToggleChat?: () => void
+  isChatOpen?: boolean
   onOpenSettings?: (tab?: 'server' | 'ai') => void
 }
 
@@ -27,8 +27,6 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigateHub,
   onSelectDataset,
   onRefreshHealth,
-  onToggleChat,
-  isChatOpen,
   onOpenSettings,
 }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -37,7 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <>
       <header className="sticky top-0 z-40 w-full border-b border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-xs">
-        <div className="flex h-16 sm:h-[68px] items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto flex h-16 sm:h-[68px] items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Left: Branding & Navigation */}
           <div className="flex items-center gap-3.5">
             <button
@@ -100,7 +98,8 @@ export const Header: React.FC<HeaderProps> = ({
                       value={d.filename}
                       className="bg-popover text-foreground"
                     >
-                      {d.name} {d.row_count !== undefined ? `(${d.row_count} rows)` : ''}
+                      {d.name.replace(/\.csv$/i, '')}{' '}
+                      {d.row_count !== undefined ? `(${d.row_count} rows)` : ''}
                     </option>
                   ))}
                 </select>
@@ -170,19 +169,6 @@ export const Header: React.FC<HeaderProps> = ({
               ) : (
                 <Moon className="w-4 h-4 text-slate-700" />
               )}
-            </Button>
-
-            {/* AI Consultant Drawer Trigger */}
-            <Button
-              type="button"
-              variant={isChatOpen ? 'default' : 'outline'}
-              size="sm"
-              onClick={onToggleChat}
-              className="h-9 gap-1.5 text-xs font-medium cursor-pointer shadow-xs"
-              title="Toggle Statistical Consultant AI Drawer"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span className="hidden sm:inline">AI Consultant</span>
             </Button>
 
             {/* Server Status Pill & Settings modal trigger */}

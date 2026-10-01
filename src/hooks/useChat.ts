@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { apiClient } from '../api/client'
 import { AnalysisResponse, CellAnalysis } from '../api/types'
 import { useAISettings } from '../context/AISettingsContext'
@@ -9,6 +9,7 @@ export interface ChatMessageItem {
   content: string
   timestamp: string
   contextUsed?: boolean
+  isStreaming?: boolean
 }
 
 export function useChat(
@@ -33,6 +34,13 @@ Try one of the quick suggestions below or ask any question about your algorithmi
   const [isOpen, setIsOpen] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort()
+    }
+  }, [])
 
   const sendMessage = useCallback(
     async (queryText: string) => {
@@ -45,14 +53,29 @@ Try one of the quick suggestions below or ask any question about your algorithmi
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       }
 
-      setMessages((prev) => [...prev, userMsg])
+      const botId = `bot-${Date.now()}`
+      const botMsg: ChatMessageItem = {
+        id: botId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        contextUsed: false,
+        isStreaming: true,
+      }
+
+      setMessages((prev) => [...prev, userMsg, botMsg])
       setIsLoading(true)
       setError(null)
 
-      try {
-        let answer = ''
-        let contextUsed = false
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      abortControllerRef.current = new AbortController()
 
+      let accumulatedText = ''
+      let contextWasUsed = false
+
+      try {
         // Determine AI parameters from active settings
         let model: string | undefined
         let apiKey: string | undefined
@@ -73,40 +96,73 @@ Try one of the quick suggestions below or ask any question about your algorithmi
           apiKey = aiSettings.geminiApiKey || undefined
         }
 
-        // Try calling the FastAPI backend /api/v1/chat
+        const chatReq = {
+          query: queryText,
+          dataset_name: datasetName || undefined,
+          csv_data: rawCsv || undefined,
+          alpha: alpha,
+          provider: aiSettings.provider,
+          model,
+          api_key: apiKey,
+          base_url: baseUrl,
+        }
+
         try {
-          const res = await apiClient.chat({
-            query: queryText,
-            dataset_name: datasetName || undefined,
-            csv_data: rawCsv || undefined,
-            alpha: alpha,
-            provider: aiSettings.provider,
-            model,
-            api_key: apiKey,
-            base_url: baseUrl,
-          })
-          answer = res.response
-          contextUsed = res.context_used
-        } catch {
-          // If server cannot be reached, fallback to placeholder response
-          const localAnswer = generateLocalConsultantResponse(
-            queryText,
-            analysis?.results || [],
-            alpha
+          const res = await apiClient.chatStream(
+            chatReq,
+            (token, contextUsed) => {
+              accumulatedText += token
+              contextWasUsed = contextUsed
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === botId
+                    ? {
+                        ...msg,
+                        content: accumulatedText,
+                        contextUsed: contextWasUsed,
+                        isStreaming: true,
+                      }
+                    : msg
+                )
+              )
+            },
+            abortControllerRef.current.signal
           )
-          answer = `> 💬 **Placeholder Message** *(Backend API disconnected / service unreachable)*:\n\n${localAnswer}`
-          contextUsed = Boolean(analysis && analysis.results.length > 0)
+          accumulatedText = res.fullText
+          contextWasUsed = res.contextUsed
+        } catch {
+          // If streaming failed and nothing was received yet, try non-streaming or offline fallback
+          if (!accumulatedText) {
+            try {
+              const res = await apiClient.chat(chatReq)
+              accumulatedText = res.response
+              contextWasUsed = res.context_used
+            } catch {
+              const localAnswer = generateLocalConsultantResponse(
+                queryText,
+                analysis?.results || [],
+                alpha
+              )
+              accumulatedText = `> 💬 **Placeholder Message** *(Backend API disconnected / service unreachable)*:\n\n${localAnswer}`
+              contextWasUsed = Boolean(analysis && analysis.results.length > 0)
+            }
+          } else {
+            accumulatedText += '\n\n*(Stream disconnected)*'
+          }
         }
 
-        const botMsg: ChatMessageItem = {
-          id: `bot-${Date.now()}`,
-          role: 'assistant',
-          content: answer,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          contextUsed,
-        }
-
-        setMessages((prev) => [...prev, botMsg])
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === botId
+              ? {
+                  ...msg,
+                  content: accumulatedText,
+                  contextUsed: contextWasUsed,
+                  isStreaming: false,
+                }
+              : msg
+          )
+        )
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : String(err))
       } finally {
@@ -117,6 +173,11 @@ Try one of the quick suggestions below or ask any question about your algorithmi
   )
 
   const clearHistory = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setIsLoading(false)
     setMessages([
       {
         id: 'reset',

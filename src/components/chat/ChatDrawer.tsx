@@ -44,13 +44,20 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   const [input, setInput] = useState('')
   const [isExpanded, setIsExpanded] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const isNearBottomRef = useRef(true)
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget
+    const distanceToBottom = target.scrollHeight - target.scrollTop - target.clientHeight
+    isNearBottomRef.current = distanceToBottom < 80
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && isNearBottomRef.current) {
       scrollToBottom()
     }
   }, [messages, isOpen])
@@ -58,15 +65,15 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   const handleSend = (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     if (!input.trim() || isLoading) return
+    isNearBottomRef.current = true
     onSendMessage(input)
     setInput('')
   }
 
   const handleChipClick = (prompt: string) => {
+    isNearBottomRef.current = true
     onSendMessage(prompt)
   }
-
-  if (!isOpen) return null
 
   const getProviderBadge = () => {
     if (aiSettings.provider === 'local') {
@@ -113,7 +120,12 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
     <div
       className={`fixed bottom-4 right-4 z-50 flex flex-col bg-background/95 backdrop-blur-md border border-border shadow-2xl rounded-2xl overflow-hidden transition-all duration-300 ${
         isExpanded ? 'w-[95vw] sm:w-[680px] h-[85vh]' : 'w-[92vw] sm:w-[460px] h-[600px]'
+      } ${
+        isOpen
+          ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto'
+          : 'opacity-0 translate-y-4 scale-95 pointer-events-none invisible'
       }`}
+      aria-hidden={!isOpen}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/60 bg-muted/40">
@@ -172,12 +184,12 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
       </div>
 
       {/* Message Feed */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3" onScroll={handleScroll}>
         {messages.map((msg) => (
           <ChatMessage key={msg.id} message={msg} />
         ))}
 
-        {isLoading && (
+        {isLoading && (!messages.length || messages[messages.length - 1].role !== 'assistant') && (
           <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/30 border border-border/50 text-xs text-muted-foreground">
             <Bot className="w-4 h-4 animate-bounce text-purple-400" />
             <span>Analyzing statistical models & formulating recommendation...</span>

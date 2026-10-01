@@ -7,7 +7,7 @@ import { ChatDrawer } from './components/chat/ChatDrawer'
 import { useAnalysis } from './hooks/useAnalysis'
 import { useTauri } from './hooks/useTauri'
 import { useChat } from './hooks/useChat'
-import { Sparkles, AlertCircle, WifiOff } from 'lucide-react'
+import { Sparkles, AlertCircle, WifiOff, Loader2 } from 'lucide-react'
 import { MissingColumnWarningModal } from './components/data/MissingColumnWarningModal'
 import { ColumnMappingModal } from './components/data/ColumnMappingModal'
 import { ProblematicRowsFixerView } from './components/data/ProblematicRowsFixerView'
@@ -229,31 +229,35 @@ export function App() {
 
       {/* API Offline Warning Banner */}
       {!apiOnline && (
-        <div className="bg-rose-50 dark:bg-rose-950/50 border-b border-rose-200 dark:border-rose-900/60 px-6 py-2.5 text-xs text-rose-800 dark:text-rose-300 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <WifiOff className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
-            <span>
-              <strong>Backend API Disconnected:</strong> The SAES backend service is offline.
-              Connect to http://127.0.0.1:8000 for schema validation and automated hypothesis
-              testing.
-            </span>
+        <div className="bg-rose-50 dark:bg-rose-950/50 border-b border-rose-200 dark:border-rose-900/60 text-xs text-rose-800 dark:text-rose-300">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <WifiOff className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+              <span>
+                <strong>Backend API Disconnected:</strong> The SAES backend service is offline.
+                Connect to http://127.0.0.1:8000 for schema validation and automated hypothesis
+                testing.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={checkHealth}
+              className="px-2.5 py-1 rounded bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/50 dark:hover:bg-rose-800/60 text-rose-900 dark:text-rose-200 text-[11px] font-semibold transition-colors cursor-pointer shrink-0"
+            >
+              Retry Connection
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={checkHealth}
-            className="px-2.5 py-1 rounded bg-rose-100 hover:bg-rose-200 dark:bg-rose-900/50 dark:hover:bg-rose-800/60 text-rose-900 dark:text-rose-200 text-[11px] font-semibold transition-colors cursor-pointer shrink-0"
-          >
-            Retry Connection
-          </button>
         </div>
       )}
 
       {/* Global Error Banner */}
       {error && (
-        <div className="bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-900/60 px-6 py-2.5 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-            <span>{error}</span>
+        <div className="bg-amber-50 dark:bg-amber-950/50 border-b border-amber-200 dark:border-amber-900/60 text-xs text-amber-800 dark:text-amber-300">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>{error}</span>
+            </div>
           </div>
         </div>
       )}
@@ -347,8 +351,14 @@ export function App() {
           onClick={() => setIsChatOpen(true)}
           className="fixed bottom-5 right-5 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-xs shadow-lg hover:shadow-primary/25 hover:scale-105 transition-all duration-200 cursor-pointer"
         >
-          <Sparkles className="w-4 h-4" />
-          <span>Ask Statistical Consultant</span>
+          {isChatLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin text-sky-300" />
+          ) : (
+            <Sparkles className="w-4 h-4" />
+          )}
+          <span>
+            {isChatLoading ? 'Advisor is generating response...' : 'Ask Statistical Consultant'}
+          </span>
         </button>
       )}
 

@@ -191,6 +191,71 @@ export class SaesApiClient {
   }
 
   /**
+   * Send question to statistical chat assistant with live token streaming via POST /api/v1/chat/stream
+   */
+  public async chatStream(
+    req: ChatRequest,
+    onToken: (token: string, contextUsed: boolean) => void,
+    signal?: AbortSignal
+  ): Promise<{ fullText: string; contextUsed: boolean }> {
+    const targetUrl = `${this.getBaseUrl().replace(/\/+$/, '')}/api/v1/chat/stream`
+    const res = await fetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(req),
+      signal,
+    })
+
+    if (!res.ok) {
+      throw new Error(`Chat API error (HTTP ${res.status}): ${res.statusText}`)
+    }
+
+    if (!res.body) {
+      throw new Error('Server did not provide a streaming response body.')
+    }
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder('utf-8')
+    let buffer = ''
+    let fullText = ''
+    let contextUsed = false
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try {
+          const data = JSON.parse(line)
+          if (data.error) {
+            throw new Error(data.error)
+          }
+          if (typeof data.context_used === 'boolean') {
+            contextUsed = data.context_used
+          }
+          if (data.token) {
+            fullText += data.token
+            onToken(data.token, contextUsed)
+          }
+        } catch (e: unknown) {
+          if (e instanceof Error && e.message !== 'Unexpected end of JSON input') {
+            throw e
+          }
+        }
+      }
+    }
+
+    return { fullText, contextUsed }
+  }
+
+  /**
    * Fetch installed models from local Ollama via backend proxy
    */
   public async fetchLocalModels(baseUrl?: string): Promise<string[]> {

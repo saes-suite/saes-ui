@@ -12,7 +12,7 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ content }) => {
     <div className="prose prose-invert prose-xs max-w-none break-words leading-relaxed text-xs">
       <ReactMarkdown
         remarkPlugins={[remarkMath]}
-        rehypePlugins={[rehypeKatex]}
+        rehypePlugins={[[rehypeKatex, { throwOnError: false }]]}
         components={{
           h1: ({ children }) => (
             <h1 className="text-sm font-bold text-foreground mb-2 mt-3">{children}</h1>
