@@ -1,10 +1,10 @@
-import React, { useState } from 'react'
-import { AppWindow, Database, Globe, Moon, Settings, Sun } from 'lucide-react'
+import React, { useState, useRef, useEffect } from 'react'
+import { AppWindow, Database, Globe, Moon, Settings, Sun, ZoomIn, ZoomOut } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { SettingsModal } from './SettingsModal'
 import { DatasetItem } from '../../api/types'
-import { useAppearance } from '../../context/AppearanceContext'
+import { useAppearance, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP } from '../../context/AppearanceContext'
 
 interface HeaderProps {
   isTauri: boolean
@@ -30,12 +30,39 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSettings,
 }) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const { theme, toggleTheme, fontSize, setFontSize } = useAppearance()
+  const { theme, toggleTheme, zoom, setZoom, zoomIn, zoomOut, resetZoom } = useAppearance()
+
+  // Decouple drag/hold interactions from document reflow to eliminate layout oscillation
+  const [localZoom, setLocalZoom] = useState(zoom)
+  const isPointerDownRef = useRef(false)
+
+  // Keep localZoom in sync when zoom changes externally (e.g. + / - buttons or reset)
+  useEffect(() => {
+    if (!isPointerDownRef.current) {
+      setLocalZoom(zoom)
+    }
+  }, [zoom])
+
+  // Commit zoom when pointer is released anywhere on screen
+  useEffect(() => {
+    const handleGlobalPointerUp = () => {
+      if (isPointerDownRef.current) {
+        isPointerDownRef.current = false
+        setZoom(localZoom)
+      }
+    }
+    window.addEventListener('pointerup', handleGlobalPointerUp)
+    window.addEventListener('pointercancel', handleGlobalPointerUp)
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalPointerUp)
+      window.removeEventListener('pointercancel', handleGlobalPointerUp)
+    }
+  }, [localZoom, setZoom])
 
   return (
     <>
       <header className="sticky top-0 z-40 w-full border-b border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-xs">
-        <div className="max-w-7xl mx-auto flex h-16 sm:h-[68px] items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto flex min-h-16 sm:min-h-[68px] items-center justify-between px-4 sm:px-6 lg:px-8 py-1.5">
           {/* Left: Branding & Navigation */}
           <div className="flex items-center gap-3.5">
             <button
@@ -106,51 +133,85 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
 
-            {/* Font Size Adjuster Buttons */}
+            {/* Zoom Range Slider Control */}
             <div
-              className="flex items-center rounded-lg border border-border bg-card p-0.5 shadow-xs h-9"
-              title="Ajustar tamaño de letra"
+              className="flex items-center gap-1 sm:gap-1.5 rounded-lg border border-border bg-card px-2 sm:px-2.5 shadow-xs h-9 shrink-0 select-none"
+              title={`Zoom: ${localZoom}% (clic en el porcentaje para restablecer al 100%)`}
               role="group"
-              aria-label="Ajustar tamaño de letra"
+              aria-label="Control de zoom"
             >
               <button
                 type="button"
-                onClick={() => setFontSize('sm')}
-                className={`h-7 px-2 flex items-center justify-center rounded text-xs transition-colors cursor-pointer ${
-                  fontSize === 'sm'
-                    ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                }`}
-                title="Tamaño de letra: Pequeño (14px)"
-                aria-label="Tamaño de letra pequeño"
+                onClick={zoomOut}
+                disabled={zoom <= MIN_ZOOM}
+                className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer shrink-0"
+                title={`Disminuir zoom (-${ZOOM_STEP}%)`}
+                aria-label="Disminuir zoom"
               >
-                <span className="text-[11px] font-semibold leading-none">A-</span>
+                <ZoomOut className="w-3.5 h-3.5" />
               </button>
+
+              <input
+                type="range"
+                min={MIN_ZOOM}
+                max={MAX_ZOOM}
+                step={ZOOM_STEP}
+                value={localZoom}
+                onPointerDown={() => {
+                  isPointerDownRef.current = true
+                }}
+                onChange={(e) => {
+                  const val = Number(e.target.value)
+                  setLocalZoom(val)
+                  // If adjusted via keyboard or non-pointer event, commit directly
+                  if (!isPointerDownRef.current) {
+                    setZoom(val)
+                  }
+                }}
+                onPointerUp={(e) => {
+                  isPointerDownRef.current = false
+                  const val = Number((e.target as HTMLInputElement).value)
+                  setLocalZoom(val)
+                  setZoom(val)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+                    e.preventDefault()
+                    zoomIn()
+                  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+                    e.preventDefault()
+                    zoomOut()
+                  }
+                }}
+                style={
+                  {
+                    '--zoom-percent': `${((localZoom - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM)) * 100}%`,
+                  } as React.CSSProperties
+                }
+                className="zoom-slider w-[72px] sm:w-[88px] md:w-[100px] cursor-pointer"
+                title={`Nivel de zoom: ${localZoom}%`}
+                aria-label="Barra deslizante de zoom"
+              />
+
               <button
                 type="button"
-                onClick={() => setFontSize('md')}
-                className={`h-7 px-2 flex items-center justify-center rounded text-xs transition-colors cursor-pointer ${
-                  fontSize === 'md'
-                    ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                }`}
-                title="Tamaño de letra: Normal (16px)"
-                aria-label="Tamaño de letra normal"
+                onClick={zoomIn}
+                disabled={zoom >= MAX_ZOOM}
+                className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer shrink-0"
+                title={`Aumentar zoom (+${ZOOM_STEP}%)`}
+                aria-label="Aumentar zoom"
               >
-                <span className="text-[13px] font-medium leading-none">A</span>
+                <ZoomIn className="w-3.5 h-3.5" />
               </button>
+
               <button
                 type="button"
-                onClick={() => setFontSize('lg')}
-                className={`h-7 px-2 flex items-center justify-center rounded text-xs transition-colors cursor-pointer ${
-                  fontSize === 'lg'
-                    ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                }`}
-                title="Tamaño de letra: Grande (18px)"
-                aria-label="Tamaño de letra grande"
+                onClick={resetZoom}
+                className="text-[11px] font-mono font-medium text-muted-foreground hover:text-primary hover:bg-muted/60 rounded px-1 py-0.5 transition-colors cursor-pointer select-none tabular-nums shrink-0 min-w-[34px] text-center"
+                title="Restablecer zoom al 100%"
+                aria-label="Restablecer zoom al 100%"
               >
-                <span className="text-[15px] font-bold leading-none">A+</span>
+                {localZoom}%
               </button>
             </div>
 

@@ -101,3 +101,83 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
 }
+
+/* Zoom range slider */
+input[type='range'].zoom-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  height: 1.25rem;
+  vertical-align: middle;
+}
+
+input[type='range'].zoom-slider:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+  border-radius: 9999px;
+}
+
+input[type='range'].zoom-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    to right,
+    hsl(var(--primary)) 0%,
+    hsl(var(--primary)) var(--zoom-percent, 50%),
+    hsl(var(--muted-foreground) / 0.25) var(--zoom-percent, 50%),
+    hsl(var(--muted-foreground) / 0.25) 100%
+  );
+  border: none;
+}
+
+input[type='range'].zoom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 14px;
+  width: 14px;
+  border-radius: 9999px;
+  background: hsl(var(--primary));
+  margin-top: -5px;
+  border: 2px solid hsl(var(--card));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+input[type='range'].zoom-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.18);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+input[type='range'].zoom-slider::-webkit-slider-thumb:active {
+  transform: scale(1.28);
+}
+
+input[type='range'].zoom-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: hsl(var(--muted-foreground) / 0.25);
+  border: none;
+}
+
+input[type='range'].zoom-slider::-moz-range-progress {
+  height: 4px;
+  border-radius: 9999px;
+  background: hsl(var(--primary));
+}
+
+input[type='range'].zoom-slider::-moz-range-thumb {
+  height: 14px;
+  width: 14px;
+  border-radius: 9999px;
+  background: hsl(var(--primary));
+  border: 2px solid hsl(var(--card));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.12s ease;
+}
+
+input[type='range'].zoom-slider::-moz-range-thumb:hover {
+  transform: scale(1.18);
+}

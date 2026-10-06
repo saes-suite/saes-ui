@@ -3,11 +3,21 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 export type Theme = 'light' | 'dark'
 export type FontSize = 'sm' | 'md' | 'lg'
 
-interface AppearanceContextType {
+export const MIN_ZOOM = 70
+export const MAX_ZOOM = 160
+export const DEFAULT_ZOOM = 100
+export const ZOOM_STEP = 5
+
+export interface AppearanceContextType {
   theme: Theme
+  zoom: number
   fontSize: FontSize
   setTheme: (theme: Theme) => void
   toggleTheme: () => void
+  setZoom: (zoom: number | ((prev: number) => number)) => void
+  zoomIn: () => void
+  zoomOut: () => void
+  resetZoom: () => void
   setFontSize: (size: FontSize) => void
   increaseFontSize: () => void
   decreaseFontSize: () => void
@@ -16,15 +26,8 @@ interface AppearanceContextType {
 const AppearanceContext = createContext<AppearanceContextType | undefined>(undefined)
 
 const THEME_STORAGE_KEY = 'saes_theme'
+const ZOOM_STORAGE_KEY = 'saes_zoom'
 const FONT_SIZE_STORAGE_KEY = 'saes_font_size'
-
-const FONT_SIZE_MAP: Record<FontSize, string> = {
-  sm: '14px',
-  md: '16px',
-  lg: '18px',
-}
-
-const FONT_SIZE_ORDER: FontSize[] = ['sm', 'md', 'lg']
 
 export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
@@ -34,11 +37,20 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
   })
 
-  const [fontSize, setFontSizeState] = useState<FontSize>(() => {
-    if (typeof window === 'undefined') return 'md'
-    const stored = localStorage.getItem(FONT_SIZE_STORAGE_KEY)
-    if (stored === 'sm' || stored === 'md' || stored === 'lg') return stored
-    return 'md'
+  const [zoom, setZoomState] = useState<number>(() => {
+    if (typeof window === 'undefined') return DEFAULT_ZOOM
+    const storedZoom = localStorage.getItem(ZOOM_STORAGE_KEY)
+    if (storedZoom) {
+      const parsed = Number(storedZoom)
+      if (!isNaN(parsed) && parsed >= MIN_ZOOM && parsed <= MAX_ZOOM) {
+        return parsed
+      }
+    }
+    // Backward compatibility for existing users who had sm/md/lg stored
+    const storedFontSize = localStorage.getItem(FONT_SIZE_STORAGE_KEY)
+    if (storedFontSize === 'sm') return 85
+    if (storedFontSize === 'lg') return 115
+    return DEFAULT_ZOOM
   })
 
   // Apply theme to document root
@@ -52,13 +64,17 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     localStorage.setItem(THEME_STORAGE_KEY, theme)
   }, [theme])
 
-  // Apply font size to document root
+  // Apply zoom to document root via root font-size
   useEffect(() => {
     const root = document.documentElement
-    root.style.fontSize = FONT_SIZE_MAP[fontSize]
-    root.setAttribute('data-font-size', fontSize)
-    localStorage.setItem(FONT_SIZE_STORAGE_KEY, fontSize)
-  }, [fontSize])
+    const baseFontSizePx = (zoom / 100) * 16
+    root.style.fontSize = `${baseFontSizePx}px`
+    root.setAttribute('data-zoom', String(zoom))
+    root.setAttribute('data-font-size', zoom < 95 ? 'sm' : zoom > 105 ? 'lg' : 'md')
+    localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom))
+    localStorage.setItem(FONT_SIZE_STORAGE_KEY, zoom < 95 ? 'sm' : zoom > 105 ? 'lg' : 'md')
+    window.dispatchEvent(new Event('resize'))
+  }, [zoom])
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme)
@@ -68,37 +84,49 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark'))
   }
 
+  const setZoom = (value: number | ((prev: number) => number)) => {
+    setZoomState((prev) => {
+      const next = typeof value === 'function' ? value(prev) : value
+      return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(next)))
+    })
+  }
+
+  const zoomIn = () => {
+    setZoom((prev) => prev + ZOOM_STEP)
+  }
+
+  const zoomOut = () => {
+    setZoom((prev) => prev - ZOOM_STEP)
+  }
+
+  const resetZoom = () => {
+    setZoom(DEFAULT_ZOOM)
+  }
+
+  // Backward compatibility with legacy fontSize controls
+  const fontSize: FontSize = zoom < 95 ? 'sm' : zoom > 105 ? 'lg' : 'md'
+
   const setFontSize = (size: FontSize) => {
-    setFontSizeState(size)
+    if (size === 'sm') setZoom(85)
+    else if (size === 'lg') setZoom(115)
+    else setZoom(100)
   }
 
-  const increaseFontSize = () => {
-    setFontSizeState((prev) => {
-      const idx = FONT_SIZE_ORDER.indexOf(prev)
-      if (idx < FONT_SIZE_ORDER.length - 1) {
-        return FONT_SIZE_ORDER[idx + 1]
-      }
-      return prev
-    })
-  }
-
-  const decreaseFontSize = () => {
-    setFontSizeState((prev) => {
-      const idx = FONT_SIZE_ORDER.indexOf(prev)
-      if (idx > 0) {
-        return FONT_SIZE_ORDER[idx - 1]
-      }
-      return prev
-    })
-  }
+  const increaseFontSize = () => zoomIn()
+  const decreaseFontSize = () => zoomOut()
 
   return (
     <AppearanceContext.Provider
       value={{
         theme,
+        zoom,
         fontSize,
         setTheme,
         toggleTheme,
+        setZoom,
+        zoomIn,
+        zoomOut,
+        resetZoom,
         setFontSize,
         increaseFontSize,
         decreaseFontSize,
