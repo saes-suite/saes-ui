@@ -7,6 +7,7 @@ import {
   DatasetItem,
   HealthResponse,
   ProviderProbeResponse,
+  RankingAnalysisResponse,
   ValidationResponse,
 } from './types'
 
@@ -171,6 +172,93 @@ export class SaesApiClient {
     formData.append('alpha', alpha.toString())
 
     const res = await this.client.post<AnalysisResponse>('/api/v1/analyze', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return res.data
+  }
+
+  /**
+   * Compute Friedman + Nemenyi Critical Distance and Bayesian Simplex ROPE test on a saved dataset
+   */
+  public async getRankingFromPath(
+    filename: string,
+    metric: string,
+    alpha: number = 0.05,
+    scope: string = 'all-instances',
+    instance?: string,
+    ropePercent: number = 1.0,
+    algoA?: string,
+    algoB?: string,
+    bayesianMethod: 'sign' | 'signed-rank' = 'signed-rank'
+  ): Promise<RankingAnalysisResponse> {
+    const formData = new FormData()
+    formData.append('metric', metric)
+    formData.append('alpha', alpha.toString())
+    formData.append('scope', scope)
+    if (instance) {
+      formData.append('instance', instance)
+    }
+    formData.append('rope_percent', ropePercent.toString())
+    if (algoA) {
+      formData.append('algo_a', algoA)
+    }
+    if (algoB) {
+      formData.append('algo_b', algoB)
+    }
+    formData.append('bayesian_method', bayesianMethod)
+
+    const res = await this.client.post<RankingAnalysisResponse>(
+      `/api/v1/datasets/${encodeURIComponent(filename)}/ranking`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    )
+    return res.data
+  }
+
+  /**
+   * Compute Friedman + Nemenyi Critical Distance and Bayesian Simplex ROPE test on raw CSV
+   */
+  public async getRankingFromCsv(
+    fileOrContent: File | Blob | string,
+    metric: string,
+    alpha: number = 0.05,
+    scope: string = 'all-instances',
+    instance?: string,
+    ropePercent: number = 1.0,
+    algoA?: string,
+    algoB?: string,
+    filename: string = 'data.csv',
+    bayesianMethod: 'sign' | 'signed-rank' = 'signed-rank'
+  ): Promise<RankingAnalysisResponse> {
+    const formData = new FormData()
+    if (typeof fileOrContent === 'string') {
+      const blob = new Blob([fileOrContent], { type: 'text/csv' })
+      formData.append('file', blob, filename)
+    } else {
+      formData.append('file', fileOrContent, filename)
+    }
+    formData.append('metric', metric)
+    formData.append('alpha', alpha.toString())
+    formData.append('scope', scope)
+    if (instance) {
+      formData.append('instance', instance)
+    }
+    formData.append('rope_percent', ropePercent.toString())
+    if (algoA) {
+      formData.append('algo_a', algoA)
+    }
+    if (algoB) {
+      formData.append('algo_b', algoB)
+    }
+    formData.append('bayesian_method', bayesianMethod)
+
+    const res = await this.client.post<RankingAnalysisResponse>('/api/v1/ranking', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

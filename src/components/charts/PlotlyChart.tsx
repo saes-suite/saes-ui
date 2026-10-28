@@ -6,8 +6,18 @@ export interface PlotlyChartProps {
   layout?: Partial<Layout>
   config?: Partial<Config>
   onPlotlyRef?: (chartDiv: HTMLDivElement | null) => void
+  onRelayout?: (eventData: Record<string, unknown>) => void
   style?: React.CSSProperties
   className?: string
+}
+
+interface PlotlyHTMLElement extends HTMLDivElement {
+  on?: (event: string, callback: (eventData: Record<string, unknown>) => void) => void
+  removeAllListeners?: (event?: string) => void
+  _fullLayout?: {
+    xaxis?: { range?: [number, number] }
+    yaxis?: { range?: [number, number] }
+  }
 }
 
 export const PlotlyChart: React.FC<PlotlyChartProps> = ({
@@ -15,10 +25,16 @@ export const PlotlyChart: React.FC<PlotlyChartProps> = ({
   layout,
   config,
   onPlotlyRef,
+  onRelayout,
   style,
   className,
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<PlotlyHTMLElement | null>(null)
+  const onRelayoutRef = useRef(onRelayout)
+
+  useEffect(() => {
+    onRelayoutRef.current = onRelayout
+  }, [onRelayout])
 
   useEffect(() => {
     if (onPlotlyRef) {
@@ -27,10 +43,13 @@ export const PlotlyChart: React.FC<PlotlyChartProps> = ({
   }, [onPlotlyRef])
 
   useEffect(() => {
-    if (!containerRef.current) return
+    const el = containerRef.current
+    if (!el) return
+
+    const hasExplicitDimensions = Boolean(layout?.width && layout?.height)
 
     const defaultLayout: Partial<Layout> = {
-      autosize: true,
+      autosize: !hasExplicitDimensions,
       paper_bgcolor: 'transparent',
       plot_bgcolor: 'transparent',
       font: {
@@ -43,24 +62,28 @@ export const PlotlyChart: React.FC<PlotlyChartProps> = ({
     }
 
     const defaultConfig: Partial<Config> = {
-      responsive: true,
-      displayModeBar: true,
+      responsive: !hasExplicitDimensions,
+      displayModeBar: false,
       displaylogo: false,
-      modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-      toImageButtonOptions: {
-        format: 'png',
-        filename: 'saes_benchmark_chart',
-        height: 700,
-        width: 1000,
-        scale: 3, // 300 DPI equivalent
-      },
+      scrollZoom: false,
       ...config,
     }
 
-    Plotly.react(containerRef.current, data, defaultLayout, defaultConfig)
+    Plotly.react(el, data, defaultLayout, defaultConfig).then(() => {
+      if (el.removeAllListeners) {
+        el.removeAllListeners('plotly_relayout')
+      }
+      if (el.on) {
+        el.on('plotly_relayout', (eventData) => {
+          if (onRelayoutRef.current) {
+            onRelayoutRef.current(eventData)
+          }
+        })
+      }
+    })
 
     const handleResize = () => {
-      if (containerRef.current) {
+      if (containerRef.current && !hasExplicitDimensions) {
         Plotly.Plots.resize(containerRef.current)
       }
     }
@@ -74,7 +97,7 @@ export const PlotlyChart: React.FC<PlotlyChartProps> = ({
   return (
     <div
       ref={containerRef}
-      style={{ width: '100%', height: '100%', minHeight: '480px', ...style }}
+      style={{ width: '100%', height: '100%', ...style }}
       className={className}
     />
   )

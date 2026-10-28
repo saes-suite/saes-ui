@@ -1,5 +1,6 @@
 import React from 'react'
 import { Palette } from 'lucide-react'
+import { SelectDropdown } from '../ui/select-dropdown'
 
 export interface ColorPaletteConfig {
   id: string
@@ -41,34 +42,64 @@ interface PaletteSelectorProps {
 }
 
 export const PaletteSelector: React.FC<PaletteSelectorProps> = ({ selectedId, onSelect }) => {
-  return (
-    <div className="flex items-center gap-2">
-      <Palette className="w-4 h-4 text-muted-foreground shrink-0" />
-      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">Palette:</span>
-      <select
-        value={selectedId}
-        onChange={(e) => onSelect(e.target.value)}
-        className="h-8 rounded-md border border-input bg-background px-2 text-xs font-medium"
-      >
-        {SCIENTIFIC_PALETTES.map((pal) => (
-          <option key={pal.id} value={pal.id}>
-            {pal.name}
-          </option>
-        ))}
-      </select>
+  const options = SCIENTIFIC_PALETTES.map((pal) => ({
+    value: pal.id,
+    label: pal.name,
+    swatches: pal.colors,
+  }))
 
-      {/* Palette swatches preview */}
-      <div className="flex items-center gap-0.5 ml-1">
-        {SCIENTIFIC_PALETTES.find((p) => p.id === selectedId)
-          ?.colors.slice(0, 5)
-          .map((color, i) => (
-            <div
-              key={i}
-              className="w-3.5 h-3.5 rounded-full border border-black/20"
+  return (
+    <SelectDropdown
+      value={selectedId}
+      options={options}
+      onChange={onSelect}
+      icon={<Palette className="w-4 h-4" />}
+      label="Palette:"
+      triggerClassName="min-w-[195px]"
+    />
+  )
+}
+
+interface PaletteColorPickerProps {
+  colors: string[]
+  selectedIndex: number
+  onSelectIndex: (index: number) => void
+  label?: string
+}
+
+export const PaletteColorPicker: React.FC<PaletteColorPickerProps> = ({
+  colors,
+  selectedIndex,
+  onSelectIndex,
+  label = 'Color:',
+}) => {
+  const activeIdx = selectedIndex < colors.length ? selectedIndex : 0
+
+  return (
+    <div className="inline-flex items-center gap-1.5">
+      {label && (
+        <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap">
+          {label}
+        </span>
+      )}
+      <div className="h-8 inline-flex items-center gap-1.5 rounded-lg border border-input bg-background px-2.5 shadow-xs">
+        {colors.map((color, idx) => {
+          const isSelected = idx === activeIdx
+          return (
+            <button
+              key={`${color}-${idx}`}
+              type="button"
+              onClick={() => onSelectIndex(idx)}
+              title={`Color ${idx + 1} (${color})`}
+              className={`w-4 h-4 rounded-full border border-black/15 transition-all ${
+                isSelected
+                  ? 'ring-2 ring-primary ring-offset-1 ring-offset-background scale-110'
+                  : 'opacity-70 hover:opacity-100 hover:scale-105'
+              }`}
               style={{ backgroundColor: color }}
-              title={color}
             />
-          ))}
+          )
+        })}
       </div>
     </div>
   )

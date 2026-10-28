@@ -9,6 +9,8 @@ import { AnalysisResponse, BenchmarkRecord, DatasetSummary } from '../../api/typ
 
 interface VisualizeWorkspaceProps {
   filename: string
+  selectedDatasetFilename?: string | null
+  rawCsv?: string
   records: BenchmarkRecord[]
   summary: DatasetSummary | null
   analysis: AnalysisResponse | null
@@ -24,6 +26,8 @@ interface VisualizeWorkspaceProps {
 
 export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
   filename,
+  selectedDatasetFilename,
+  rawCsv,
   records,
   summary,
   analysis,
@@ -177,7 +181,13 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
 
         {/* TAB 1: INTERACTIVE CHARTS */}
         <TabsContent value="charts" className="space-y-5 focus-visible:outline-none">
-          <ChartWorkbench records={records} alpha={alpha} />
+          <ChartWorkbench
+            records={records}
+            alpha={alpha}
+            apiOnline={apiOnline}
+            selectedDatasetFilename={selectedDatasetFilename || filename}
+            rawCsv={rawCsv}
+          />
         </TabsContent>
 
         {/* TAB 2: STATISTICAL WORKBENCH */}

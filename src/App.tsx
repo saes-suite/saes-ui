@@ -329,6 +329,8 @@ export function App() {
         {view === 'visualize' && (
           <VisualizeWorkspace
             filename={filename || selectedDatasetFilename || 'benchmark.csv'}
+            selectedDatasetFilename={selectedDatasetFilename}
+            rawCsv={rawCsv}
             records={records}
             summary={summary}
             analysis={analysis}
