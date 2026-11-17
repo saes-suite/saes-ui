@@ -8,8 +8,11 @@ import {
   DatasetDetail,
   DatasetItem,
   HealthResponse,
+  PerformanceProfilesResponse,
+  PowerAnalysisResponse,
   ProviderProbeResponse,
   RankingAnalysisResponse,
+  ReproducibilityResponse,
   StatisticalTableQueryParams,
   StatisticalTableResponse,
   TableExportFormat,
@@ -554,6 +557,125 @@ export class SaesApiClient {
       },
       responseType: 'blob',
     })
+    return res.data
+  }
+
+  // ==========================================
+  // PERFORMANCE PROFILES & META-BENCHMARK
+  // ==========================================
+  public async getPerformanceProfilesFromPath(
+    filename: string,
+    params: { metric?: string; alpha?: number; max_tau?: number } = {}
+  ): Promise<PerformanceProfilesResponse> {
+    const res = await this.client.get<PerformanceProfilesResponse>(
+      `/api/v1/datasets/${encodeURIComponent(filename)}/profiles`,
+      { params }
+    )
+    return res.data
+  }
+
+  public async getPerformanceProfilesFromCsv(
+    fileOrContent: File | Blob | string,
+    params: { metric?: string; alpha?: number; max_tau?: number } = {}
+  ): Promise<PerformanceProfilesResponse> {
+    const formData = new FormData()
+    if (typeof fileOrContent === 'string') {
+      formData.append('file', new Blob([fileOrContent], { type: 'text/csv' }), 'data.csv')
+    } else {
+      formData.append('file', fileOrContent, 'data.csv')
+    }
+    if (params.metric) formData.append('metric', params.metric)
+    if (params.alpha !== undefined) formData.append('alpha', params.alpha.toString())
+    if (params.max_tau !== undefined) formData.append('max_tau', params.max_tau.toString())
+
+    const res = await this.client.post<PerformanceProfilesResponse>('/api/v1/profiles', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return res.data
+  }
+
+  // ==========================================
+  // STATISTICAL POWER & EXPERIMENTAL DESIGN
+  // ==========================================
+  public async getPowerAnalysisFromPath(
+    filename: string,
+    params: {
+      metric?: string
+      alpha?: number
+      target_power?: number
+      target_effect_size?: number
+    } = {}
+  ): Promise<PowerAnalysisResponse> {
+    const res = await this.client.get<PowerAnalysisResponse>(
+      `/api/v1/datasets/${encodeURIComponent(filename)}/power`,
+      { params }
+    )
+    return res.data
+  }
+
+  public async getPowerAnalysisFromCsv(
+    fileOrContent: File | Blob | string,
+    params: {
+      metric?: string
+      alpha?: number
+      target_power?: number
+      target_effect_size?: number
+    } = {}
+  ): Promise<PowerAnalysisResponse> {
+    const formData = new FormData()
+    if (typeof fileOrContent === 'string') {
+      formData.append('file', new Blob([fileOrContent], { type: 'text/csv' }), 'data.csv')
+    } else {
+      formData.append('file', fileOrContent, 'data.csv')
+    }
+    if (params.metric) formData.append('metric', params.metric)
+    if (params.alpha !== undefined) formData.append('alpha', params.alpha.toString())
+    if (params.target_power !== undefined)
+      formData.append('target_power', params.target_power.toString())
+    if (params.target_effect_size !== undefined)
+      formData.append('target_effect_size', params.target_effect_size.toString())
+
+    const res = await this.client.post<PowerAnalysisResponse>('/api/v1/power', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return res.data
+  }
+
+  // ==========================================
+  // REPRODUCIBILITY & SCRIPTING
+  // ==========================================
+  public async getReproducibilityFromPath(
+    filename: string,
+    params: { metric?: string; alpha?: number } = {}
+  ): Promise<ReproducibilityResponse> {
+    const res = await this.client.get<ReproducibilityResponse>(
+      `/api/v1/datasets/${encodeURIComponent(filename)}/reproducibility`,
+      { params }
+    )
+    return res.data
+  }
+
+  public async getReproducibilityFromCsv(
+    fileOrContent: File | Blob | string,
+    params: { metric?: string; alpha?: number; filename?: string } = {}
+  ): Promise<ReproducibilityResponse> {
+    const formData = new FormData()
+    if (typeof fileOrContent === 'string') {
+      formData.append('file', new Blob([fileOrContent], { type: 'text/csv' }), 'data.csv')
+    } else {
+      formData.append('file', fileOrContent, 'data.csv')
+    }
+    if (params.metric) formData.append('metric', params.metric)
+    if (params.alpha !== undefined) formData.append('alpha', params.alpha.toString())
+    if (params.filename) formData.append('filename', params.filename)
+
+    const res = await this.client.post<ReproducibilityResponse>(
+      '/api/v1/reproducibility',
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }
+    )
     return res.data
   }
 

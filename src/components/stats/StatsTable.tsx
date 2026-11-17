@@ -308,6 +308,24 @@ export const StatsTable: React.FC<StatsTableProps> = ({
   const [pdfPreviewTab, setPdfPreviewTab] = useState<'visual' | 'vector'>('visual')
   const [selectedOtherFormat, setSelectedOtherFormat] = useState<TableExportFormat>('docx')
 
+  // Debounced title and caption for auto-updating Vector PDF preview
+  const [debouncedPdfTitle, setDebouncedPdfTitle] = useState<string>(pdfTitle)
+  const [debouncedPdfCaption, setDebouncedPdfCaption] = useState<string>(pdfCaption)
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedPdfTitle(pdfTitle)
+    }, 400)
+    return () => clearTimeout(handler)
+  }, [pdfTitle])
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedPdfCaption(pdfCaption)
+    }, 400)
+    return () => clearTimeout(handler)
+  }, [pdfCaption])
+
   const [tableData, setTableData] = useState<StatisticalTableResponse | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [isExportDialogOpen, setIsExportDialogOpen] = useState<boolean>(false)
@@ -491,11 +509,10 @@ export const StatsTable: React.FC<StatsTableProps> = ({
         ? await apiClient.exportTableFromPath(selectedDatasetFilename, 'pdf', exportParams)
         : await apiClient.exportTableFromCsv(rawCsv || '', 'pdf', exportParams)
 
-      if (pdfPreviewBlobUrl) {
-        URL.revokeObjectURL(pdfPreviewBlobUrl)
-      }
-      const url = URL.createObjectURL(blob)
-      setPdfPreviewBlobUrl(url)
+      setPdfPreviewBlobUrl((prevUrl) => {
+        if (prevUrl) URL.revokeObjectURL(prevUrl)
+        return URL.createObjectURL(blob)
+      })
       setPdfPreviewTab('vector')
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'Failed to generate PDF preview.')
@@ -503,6 +520,76 @@ export const StatsTable: React.FC<StatsTableProps> = ({
       setIsPreviewLoading(false)
     }
   }
+
+  // Auto-execute Vector PDF render whenever presentation options change while viewing Vector tab
+  useEffect(() => {
+    if (!isExportDialogOpen || exportModalTab !== 'pdf' || pdfPreviewTab !== 'vector') {
+      return
+    }
+    if (!apiOnline || (!selectedDatasetFilename && !rawCsv)) {
+      return
+    }
+
+    let isMounted = true
+    setIsPreviewLoading(true)
+
+    const baseParams = buildQueryParams()
+    const exportParams: StatisticalTableQueryParams = {
+      ...baseParams,
+      pdf_title: debouncedPdfTitle.trim() || undefined,
+      pdf_caption: debouncedPdfCaption.trim() || undefined,
+      pdf_theme: pdfTheme,
+      pdf_orientation: pdfOrientation,
+      pdf_font_size: pdfFontSize,
+      pdf_highlight_best: pdfHighlightBest,
+      pdf_show_zebra: pdfShowZebra,
+      pdf_grid_style: pdfGridStyle,
+    }
+
+    const run = async () => {
+      try {
+        const blob = selectedDatasetFilename
+          ? await apiClient.exportTableFromPath(selectedDatasetFilename, 'pdf', exportParams)
+          : await apiClient.exportTableFromCsv(rawCsv || '', 'pdf', exportParams)
+
+        if (!isMounted) return
+
+        setPdfPreviewBlobUrl((prevUrl) => {
+          if (prevUrl) URL.revokeObjectURL(prevUrl)
+          return URL.createObjectURL(blob)
+        })
+      } catch (err: unknown) {
+        if (!isMounted) return
+        setErrorMsg(err instanceof Error ? err.message : 'Failed to update Vector PDF preview.')
+      } finally {
+        if (isMounted) {
+          setIsPreviewLoading(false)
+        }
+      }
+    }
+
+    run()
+
+    return () => {
+      isMounted = false
+    }
+  }, [
+    isExportDialogOpen,
+    exportModalTab,
+    pdfPreviewTab,
+    pdfTheme,
+    pdfOrientation,
+    pdfFontSize,
+    pdfHighlightBest,
+    pdfShowZebra,
+    pdfGridStyle,
+    debouncedPdfTitle,
+    debouncedPdfCaption,
+    apiOnline,
+    selectedDatasetFilename,
+    rawCsv,
+    buildQueryParams,
+  ])
 
   const handleCopyCode = (kind: 'latex' | 'markdown') => {
     if (!tableData) return
@@ -1785,138 +1872,232 @@ export const StatsTable: React.FC<StatsTableProps> = ({
       {tableData && viewMode === 'latex_code' && (
         <div className="space-y-4">
           {/* Config Bar for LaTeX Generation: Structure, Document Mode & Number Notation */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 px-4 py-3 rounded-xl border border-border/70 bg-muted/20 text-xs">
-            {/* Table Type */}
-            <div className="space-y-1.5">
-              <span className="font-semibold text-muted-foreground block">Table Structure:</span>
-              <div className="flex flex-wrap gap-1">
-                {(
-                  [
-                    { id: 'pairwise_matrix', label: '1vs1 Matrix' },
-                    { id: 'instance_algorithm', label: 'Instance × Algo' },
-                    { id: 'omnibus_posthoc', label: 'Friedman / Post-Hoc' },
-                  ] as { id: TableType; label: string }[]
-                ).map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setActiveTableType(t.id)}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
-                      activeTableType === t.id
-                        ? 'bg-primary text-primary-foreground shadow-2xs'
-                        : 'bg-card text-muted-foreground hover:text-foreground border border-border/60'
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 p-4 rounded-2xl border border-border/70 bg-muted/20 text-xs">
+            <div className="flex flex-wrap items-center gap-6">
+              {/* Table Structure */}
+              <div className="space-y-1.5">
+                <span className="font-semibold text-muted-foreground block text-[11px] uppercase tracking-wider">
+                  Table Structure
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {(
+                    [
+                      { id: 'pairwise_matrix', label: '1vs1 Matrix' },
+                      { id: 'instance_algorithm', label: 'Instance × Algo' },
+                      { id: 'omnibus_posthoc', label: 'Friedman / Post-Hoc' },
+                    ] as { id: TableType; label: string }[]
+                  ).map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setActiveTableType(t.id)}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        activeTableType === t.id
+                          ? 'bg-primary text-primary-foreground shadow-xs'
+                          : 'bg-card text-muted-foreground hover:text-foreground border border-border/60 hover:bg-muted/40'
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Document Mode */}
+              <div className="space-y-1.5">
+                <span className="font-semibold text-muted-foreground block text-[11px] uppercase tracking-wider">
+                  Document Mode
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {(
+                    [
+                      {
+                        id: 'standalone',
+                        label: 'Standalone (.tex)',
+                        title:
+                          'Ready to compile in Overleaf/TeXShop with \\documentclass and packages',
+                      },
+                      {
+                        id: 'snippet',
+                        label: 'Paper Snippet',
+                        title: 'Table environment snippet for inclusion in existing papers',
+                      },
+                    ] as { id: LatexDocumentMode; label: string; title: string }[]
+                  ).map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      title={m.title}
+                      onClick={() => setLatexDocumentMode(m.id)}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        latexDocumentMode === m.id
+                          ? 'bg-primary text-primary-foreground shadow-xs'
+                          : 'bg-card text-muted-foreground hover:text-foreground border border-border/60 hover:bg-muted/40'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notation Style */}
+              <div className="space-y-1.5">
+                <span className="font-semibold text-muted-foreground block text-[11px] uppercase tracking-wider">
+                  Number Notation
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {(
+                    [
+                      {
+                        id: 'scientific',
+                        label: 'Scientific ($e$)',
+                        title: 'Scientific notation with subscript SD: $2.55\\text{e-}02_{...}$',
+                      },
+                      {
+                        id: 'siunitx',
+                        label: 'siunitx (\\SI)',
+                        title: 'LaTeX siunitx package format: \\SI{2.55e-2}{}',
+                      },
+                      {
+                        id: 'standard',
+                        label: 'Decimal ($\\pm$)',
+                        title: 'Standard decimal format: $0.0255 \\pm 0.0033$',
+                      },
+                    ] as { id: LatexNotation; label: string; title: string }[]
+                  ).map((n) => (
+                    <button
+                      key={n.id}
+                      type="button"
+                      title={n.title}
+                      onClick={() => setLatexNotation(n.id)}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        latexNotation === n.id
+                          ? 'bg-primary text-primary-foreground shadow-xs'
+                          : 'bg-card text-muted-foreground hover:text-foreground border border-border/60 hover:bg-muted/40'
+                      }`}
+                    >
+                      {n.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Document Mode */}
-            <div className="space-y-1.5">
-              <span className="font-semibold text-muted-foreground block">Document Wrapping:</span>
-              <div className="flex flex-wrap gap-1">
-                {(
-                  [
-                    {
-                      id: 'standalone',
-                      label: 'Standalone (.tex)',
-                      title:
-                        'Ready to compile in Overleaf/TeXShop with \\documentclass and packages',
-                    },
-                    {
-                      id: 'snippet',
-                      label: 'Paper Snippet',
-                      title: 'Table environment snippet for inclusion in existing papers',
-                    },
-                  ] as { id: LatexDocumentMode; label: string; title: string }[]
-                ).map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    title={m.title}
-                    onClick={() => setLatexDocumentMode(m.id)}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
-                      latexDocumentMode === m.id
-                        ? 'bg-primary text-primary-foreground shadow-2xs'
-                        : 'bg-card text-muted-foreground hover:text-foreground border border-border/60'
-                    }`}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* Direct Quick Actions Toolbar */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-border/50 shrink-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isExporting !== null}
+                onClick={() => handleExport('latex')}
+                className="h-8.5 px-3 text-xs gap-1.5 font-semibold cursor-pointer"
+                title="Download .tex source file directly"
+              >
+                {isExporting === 'latex' ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-primary" />
+                )}
+                Export .tex
+              </Button>
 
-            {/* Notation Style */}
-            <div className="space-y-1.5">
-              <span className="font-semibold text-muted-foreground block">Number Notation:</span>
-              <div className="flex flex-wrap gap-1">
-                {(
-                  [
-                    {
-                      id: 'scientific',
-                      label: 'Scientific ($e$)',
-                      title: 'Scientific notation with subscript SD: $2.55\\text{e-}02_{...}$',
-                    },
-                    {
-                      id: 'siunitx',
-                      label: 'siunitx (\\SI)',
-                      title: 'LaTeX siunitx package format: \\SI{2.55e-2}{}',
-                    },
-                    {
-                      id: 'standard',
-                      label: 'Decimal ($\\pm$)',
-                      title: 'Standard decimal format: $0.0255 \\pm 0.0033$',
-                    },
-                  ] as { id: LatexNotation; label: string; title: string }[]
-                ).map((n) => (
-                  <button
-                    key={n.id}
-                    type="button"
-                    title={n.title}
-                    onClick={() => setLatexNotation(n.id)}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
-                      latexNotation === n.id
-                        ? 'bg-primary text-primary-foreground shadow-2xs'
-                        : 'bg-card text-muted-foreground hover:text-foreground border border-border/60'
-                    }`}
-                  >
-                    {n.label}
-                  </button>
-                ))}
-              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isExporting !== null}
+                onClick={() => handleExport('pdf')}
+                className="h-8.5 px-3 text-xs gap-1.5 font-semibold cursor-pointer"
+                title="Export publication vector PDF directly"
+              >
+                {isExporting === 'pdf' ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <FileText className="w-3.5 h-3.5 text-primary" />
+                )}
+                Export PDF
+              </Button>
+
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setExportModalTab('pdf')
+                  setIsExportDialogOpen(true)
+                }}
+                className="h-8.5 px-3 text-xs gap-1.5 font-semibold cursor-pointer"
+                title="Open Publication Studio to customize styles, themes and vector PDF"
+              >
+                <Palette className="w-3.5 h-3.5 text-primary" />
+                PDF Studio
+              </Button>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* LaTeX Source */}
             <div className="rounded-2xl border border-border/80 bg-card overflow-hidden flex flex-col">
-              <div className="px-4 py-3 border-b border-border/60 bg-muted/40 flex items-center justify-between">
+              <div className="px-4 py-3 border-b border-border/60 bg-muted/40 flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-bold font-mono flex items-center gap-1.5">
                   <FileCode className="w-4 h-4 text-primary" />
                   LaTeX Publication Source ({activeTableType})
                 </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleCopyCode('latex')}
-                  className="h-7 px-2.5 text-xs gap-1"
-                >
-                  {copiedCode === 'latex' ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-500" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      Copy LaTeX
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyCode('latex')}
+                    className="h-7 px-2.5 text-xs gap-1 cursor-pointer"
+                  >
+                    {copiedCode === 'latex' ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        Copy LaTeX
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isExporting !== null}
+                    onClick={() => handleExport('latex')}
+                    className="h-7 px-2.5 text-xs gap-1 cursor-pointer"
+                    title="Download .tex file"
+                  >
+                    {isExporting === 'latex' ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Download className="w-3 h-3 text-primary" />
+                    )}
+                    .tex
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isExporting !== null}
+                    onClick={() => handleExport('pdf')}
+                    className="h-7 px-2.5 text-xs gap-1 cursor-pointer"
+                    title="Export publication PDF"
+                  >
+                    {isExporting === 'pdf' ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <FileText className="w-3 h-3 text-primary" />
+                    )}
+                    PDF
+                  </Button>
+                </div>
               </div>
               <pre className="p-4 text-[11px] font-mono overflow-x-auto bg-zinc-950 text-zinc-100 flex-1 leading-relaxed">
                 {tableData.latex_preview}
@@ -1925,30 +2106,48 @@ export const StatsTable: React.FC<StatsTableProps> = ({
 
             {/* Markdown Source */}
             <div className="rounded-2xl border border-border/80 bg-card overflow-hidden flex flex-col">
-              <div className="px-4 py-3 border-b border-border/60 bg-muted/40 flex items-center justify-between">
+              <div className="px-4 py-3 border-b border-border/60 bg-muted/40 flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-bold font-mono flex items-center gap-1.5">
                   <Code2 className="w-4 h-4 text-sky-500" />
                   Markdown Benchmark Table
                 </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleCopyCode('markdown')}
-                  className="h-7 px-2.5 text-xs gap-1"
-                >
-                  {copiedCode === 'markdown' ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-500" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      Copy Markdown
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyCode('markdown')}
+                    className="h-7 px-2.5 text-xs gap-1 cursor-pointer"
+                  >
+                    {copiedCode === 'markdown' ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-500" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        Copy Markdown
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isExporting !== null}
+                    onClick={() => handleExport('markdown')}
+                    className="h-7 px-2.5 text-xs gap-1 cursor-pointer"
+                    title="Download .md file"
+                  >
+                    {isExporting === 'markdown' ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Download className="w-3 h-3 text-sky-500" />
+                    )}
+                    .md
+                  </Button>
+                </div>
               </div>
               <pre className="p-4 text-[11px] font-mono overflow-x-auto bg-zinc-950 text-zinc-100 flex-1 leading-relaxed">
                 {tableData.markdown_preview}
@@ -2409,7 +2608,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
           </DialogHeader>
 
           {/* Modal Tab Switcher */}
-          <div className="flex items-center gap-2 pt-1 border-b border-border/50 pb-2">
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-b border-border/50 pb-2.5">
             <button
               type="button"
               onClick={() => setExportModalTab('pdf')}
@@ -2433,7 +2632,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
-              <span>Other Formats (Word, LaTeX, CSV, MD, HTML)</span>
+              <span>Other Formats (LaTeX, Word, CSV, MD, HTML)</span>
             </button>
           </div>
 
@@ -2513,13 +2712,13 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                                 style={{ backgroundColor: th.accentBg }}
                               />
                             </div>
-                            <div className="font-bold text-xs text-foreground flex items-center justify-between">
-                              <span>{th.name}</span>
+                            <div className="font-bold text-xs text-foreground flex items-center justify-between gap-1">
+                              <span className="truncate">{th.name}</span>
                               {isSelected && (
                                 <Check className="w-3.5 h-3.5 text-primary shrink-0" />
                               )}
                             </div>
-                            <div className="text-[11px] text-muted-foreground leading-snug mt-0.5">
+                            <div className="text-[11px] text-muted-foreground leading-snug mt-1 break-words">
                               {th.description}
                             </div>
                           </button>
@@ -2581,14 +2780,14 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                             key={s.size}
                             type="button"
                             onClick={() => setPdfFontSize(s.size)}
-                            className={`px-2 py-2 rounded-lg border text-center transition-all cursor-pointer ${
+                            className={`px-1.5 py-2 rounded-lg border text-center transition-all cursor-pointer overflow-hidden ${
                               pdfFontSize === s.size
                                 ? 'bg-primary text-primary-foreground border-primary font-semibold shadow-xs'
                                 : 'bg-card border-border/70 text-muted-foreground hover:text-foreground'
                             }`}
                           >
-                            <div className="text-xs font-bold">{s.label}</div>
-                            <div className="text-[10px] opacity-80 mt-0.5">{s.desc}</div>
+                            <div className="text-xs font-bold truncate">{s.label}</div>
+                            <div className="text-[10px] opacity-80 mt-0.5 truncate">{s.desc}</div>
                           </button>
                         ))}
                       </div>
@@ -2601,17 +2800,18 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                       Table Rules &amp; Accents
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {/* Feature Toggles (2 columns with plenty of width so text never clips) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <button
                         type="button"
                         onClick={() => setPdfHighlightBest(!pdfHighlightBest)}
-                        className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between ${
+                        className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
                           pdfHighlightBest
                             ? 'border-primary/50 bg-primary/10 text-primary font-semibold'
-                            : 'border-border/70 bg-card text-muted-foreground'
+                            : 'border-border/70 bg-card text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        <div className="text-xs">Highlight Winners</div>
+                        <div className="text-xs font-medium">Highlight Winners</div>
                         {pdfHighlightBest && (
                           <Check className="w-3.5 h-3.5 text-primary shrink-0" />
                         )}
@@ -2620,17 +2820,23 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                       <button
                         type="button"
                         onClick={() => setPdfShowZebra(!pdfShowZebra)}
-                        className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between ${
+                        className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
                           pdfShowZebra
                             ? 'border-primary/50 bg-primary/10 text-primary font-semibold'
-                            : 'border-border/70 bg-card text-muted-foreground'
+                            : 'border-border/70 bg-card text-muted-foreground hover:text-foreground'
                         }`}
                       >
-                        <div className="text-xs">Zebra Striping</div>
+                        <div className="text-xs font-medium">Zebra Striping</div>
                         {pdfShowZebra && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
                       </button>
+                    </div>
 
-                      <div className="flex items-center gap-1 bg-card border border-border/70 rounded-lg p-1">
+                    {/* Grid Border Style (Dedicated segmented control with generous space for Booktabs) */}
+                    <div className="space-y-1.5 pt-1">
+                      <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                        Grid Border Style
+                      </label>
+                      <div className="grid grid-cols-3 gap-1.5 bg-card border border-border/70 rounded-lg p-1">
                         {(
                           [
                             { id: 'full', label: 'Grid' },
@@ -2642,9 +2848,9 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                             key={g.id}
                             type="button"
                             onClick={() => setPdfGridStyle(g.id)}
-                            className={`flex-1 py-1 text-center rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                            className={`py-1.5 px-2 text-center rounded-md text-xs font-semibold transition-all cursor-pointer ${
                               pdfGridStyle === g.id
-                                ? 'bg-primary text-primary-foreground shadow-2xs'
+                                ? 'bg-primary text-primary-foreground shadow-2xs font-bold'
                                 : 'text-muted-foreground hover:text-foreground'
                             }`}
                           >
@@ -2680,6 +2886,23 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                     <div className="font-bold text-foreground text-xs flex items-center gap-1.5">
                       <Eye className="w-3.5 h-3.5 text-primary" />
                       <span>Document Preview</span>
+                      {pdfPreviewTab === 'vector' && (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground font-normal ml-1">
+                          {isPreviewLoading ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                              <span className="text-primary font-medium">
+                                Updating vector PDF...
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              <span>Live Auto-Sync</span>
+                            </>
+                          )}
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/60 text-xs">
@@ -2696,13 +2919,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (!pdfPreviewBlobUrl) {
-                            handleGeneratePdfPreview()
-                          } else {
-                            setPdfPreviewTab('vector')
-                          }
-                        }}
+                        onClick={() => setPdfPreviewTab('vector')}
                         className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
                           pdfPreviewTab === 'vector'
                             ? 'bg-background text-foreground shadow-2xs'
@@ -2855,22 +3072,22 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                           variant="outline"
                           size="sm"
                           disabled={isPreviewLoading}
-                          onClick={handleGeneratePdfPreview}
+                          onClick={() => setPdfPreviewTab('vector')}
                           className="text-xs gap-1.5 cursor-pointer"
                         >
                           {isPreviewLoading ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                           ) : (
-                            <RefreshCw className="w-3.5 h-3.5" />
+                            <Eye className="w-3.5 h-3.5" />
                           )}
-                          Generate Vector PDF Preview
+                          Switch to Vector PDF Preview
                         </Button>
                       </div>
                     </div>
                   ) : (
                     /* Vector PDF Tab */
-                    <div className="rounded-xl border border-border/80 bg-card p-2 flex-1 flex flex-col min-h-[380px] max-h-[500px]">
-                      {isPreviewLoading ? (
+                    <div className="rounded-xl border border-border/80 bg-card p-2 flex-1 flex flex-col min-h-[380px] max-h-[500px] relative">
+                      {isPreviewLoading && !pdfPreviewBlobUrl ? (
                         <div className="flex-1 flex flex-col items-center justify-center gap-2 p-8 text-center">
                           <Loader2 className="w-6 h-6 animate-spin text-primary" />
                           <p className="text-xs text-muted-foreground">
@@ -2878,26 +3095,55 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                           </p>
                         </div>
                       ) : pdfPreviewBlobUrl ? (
-                        <div className="flex-1 flex flex-col space-y-2">
-                          <iframe
-                            src={pdfPreviewBlobUrl}
-                            className="w-full flex-1 min-h-[360px] rounded-lg border border-border/60 bg-white"
-                            title="Vector PDF Preview"
-                          />
-                          <div className="flex items-center justify-between pt-1">
-                            <span className="text-[11px] text-muted-foreground">
+                        <div className="flex-1 flex flex-col space-y-2 h-full">
+                          <div className="relative flex-1 min-h-[360px] rounded-lg overflow-hidden border border-border/60 bg-white">
+                            <iframe
+                              src={pdfPreviewBlobUrl}
+                              className="w-full h-full border-none"
+                              title="Vector PDF Preview"
+                            />
+                            {isPreviewLoading && (
+                              <div className="absolute inset-0 bg-background/40 backdrop-blur-xs flex items-center justify-center">
+                                <div className="bg-card/90 border border-border px-3 py-1.5 rounded-lg shadow-md flex items-center gap-2">
+                                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                  <span className="text-xs font-medium">
+                                    Re-rendering vector PDF...
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                            <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500" />
                               Exact ReportLab vector PDF rendered
                             </span>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={handleGeneratePdfPreview}
-                              className="text-xs gap-1.5 cursor-pointer"
-                            >
-                              <RefreshCw className="w-3 h-3" />
-                              Refresh Preview
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={isPreviewLoading}
+                                onClick={handleGeneratePdfPreview}
+                                className="text-xs h-7 px-2.5 gap-1.5 cursor-pointer"
+                              >
+                                <RefreshCw
+                                  className={`w-3 h-3 ${isPreviewLoading ? 'animate-spin' : ''}`}
+                                />
+                                Refresh Preview
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="default"
+                                size="sm"
+                                disabled={isExporting !== null}
+                                onClick={() => handleExport('pdf')}
+                                className="text-xs h-7 px-2.5 gap-1.5 cursor-pointer"
+                              >
+                                <Download className="w-3 h-3" />
+                                Download PDF
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ) : (
@@ -2908,18 +3154,23 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                               Vector PDF Preview
                             </p>
                             <p className="text-[11px] text-muted-foreground mt-0.5 max-w-xs">
-                              Generate the exact paginated ReportLab PDF document to preview layouts
-                              and typography.
+                              Auto-renders the exact paginated ReportLab PDF document to preview
+                              layouts and typography.
                             </p>
                           </div>
                           <Button
                             type="button"
                             variant="default"
                             size="sm"
+                            disabled={isPreviewLoading}
                             onClick={handleGeneratePdfPreview}
                             className="text-xs gap-1.5 cursor-pointer mt-1"
                           >
-                            <RefreshCw className="w-3.5 h-3.5" />
+                            {isPreviewLoading ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <RefreshCw className="w-3.5 h-3.5" />
+                            )}
                             Generate Vector PDF Preview
                           </Button>
                         </div>
@@ -2932,7 +3183,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
               /* Other Formats Tab */
               <div className="space-y-4 text-xs">
                 {/* Format selection cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                   {(
                     [
                       {
@@ -3005,7 +3256,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                       </Badge>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
                       {/* Document Structure */}
                       <div className="space-y-1.5">
                         <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
@@ -3015,26 +3266,30 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                           <button
                             type="button"
                             onClick={() => setLatexDocumentMode('standalone')}
-                            className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+                            className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
                               latexDocumentMode === 'standalone'
-                                ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                                ? 'bg-primary text-primary-foreground border-primary shadow-xs font-semibold'
                                 : 'bg-card border-border/70 text-muted-foreground hover:text-foreground'
                             }`}
                           >
-                            <div>Standalone</div>
-                            <div className="text-[10px] opacity-80 font-normal">Full document</div>
+                            <div className="text-xs font-bold">Standalone</div>
+                            <div className="text-[10px] opacity-80 mt-0.5">
+                              Full article with packages
+                            </div>
                           </button>
                           <button
                             type="button"
                             onClick={() => setLatexDocumentMode('snippet')}
-                            className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+                            className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer ${
                               latexDocumentMode === 'snippet'
-                                ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                                ? 'bg-primary text-primary-foreground border-primary shadow-xs font-semibold'
                                 : 'bg-card border-border/70 text-muted-foreground hover:text-foreground'
                             }`}
                           >
-                            <div>Paper Snippet</div>
-                            <div className="text-[10px] opacity-80 font-normal">table env only</div>
+                            <div className="text-xs font-bold">Paper Snippet</div>
+                            <div className="text-[10px] opacity-80 mt-0.5">
+                              Table environment only
+                            </div>
                           </button>
                         </div>
                         <p className="text-[10px] text-muted-foreground pt-0.5">
@@ -3061,14 +3316,14 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                               key={n.id}
                               type="button"
                               onClick={() => setLatexNotation(n.id)}
-                              className={`px-2 py-2 rounded-lg border text-center transition-all cursor-pointer ${
+                              className={`p-2 rounded-lg border text-center transition-all cursor-pointer overflow-hidden ${
                                 latexNotation === n.id
                                   ? 'bg-primary text-primary-foreground border-primary font-semibold shadow-xs'
                                   : 'bg-card border-border/70 text-muted-foreground hover:text-foreground'
                               }`}
                             >
-                              <div className="text-xs font-bold">{n.label}</div>
-                              <div className="text-[10px] opacity-80 mt-0.5 font-mono">
+                              <div className="text-xs font-bold truncate">{n.label}</div>
+                              <div className="text-[10px] opacity-80 mt-0.5 font-mono truncate">
                                 {n.desc}
                               </div>
                             </button>
@@ -3080,12 +3335,12 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                       </div>
                     </div>
 
-                    <div className="pt-2">
+                    <div className="pt-2 flex flex-col sm:flex-row gap-2">
                       <Button
                         type="button"
                         disabled={isExporting !== null}
                         onClick={() => handleExport('latex')}
-                        className="w-full h-11 text-xs font-bold gap-2 cursor-pointer"
+                        className="flex-1 h-11 text-xs font-bold gap-2 cursor-pointer shadow-xs"
                       >
                         {isExporting === 'latex' ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -3093,6 +3348,35 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                           <Download className="w-4 h-4" />
                         )}
                         Download LaTeX Source (.tex)
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleCopyCode('latex')}
+                        className="h-11 px-4 text-xs font-semibold gap-2 cursor-pointer"
+                      >
+                        {copiedCode === 'latex' ? (
+                          <>
+                            <Check className="w-4 h-4 text-emerald-500" />
+                            Copied LaTeX!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4" />
+                            Copy LaTeX
+                          </>
+                        )}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setExportModalTab('pdf')}
+                        className="h-11 px-4 text-xs font-semibold gap-2 cursor-pointer"
+                      >
+                        <Palette className="w-4 h-4 text-primary" />
+                        Vector PDF Studio
                       </Button>
                     </div>
                   </div>

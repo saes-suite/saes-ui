@@ -1,10 +1,22 @@
 import React, { useState } from 'react'
-import { ArrowLeft, BarChart2, PieChart, Database, FileEdit } from 'lucide-react'
+import {
+  ArrowLeft,
+  BarChart2,
+  PieChart,
+  Database,
+  FileEdit,
+  TrendingUp,
+  Activity,
+  Code,
+} from 'lucide-react'
 import { Button } from '../ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
 import { ChartWorkbench } from '../charts/ChartWorkbench'
 import { StatsTable } from '../stats/StatsTable'
 import { DataTable } from '../data/DataTable'
+import { PerformanceProfilesWorkspace } from '../profiles/PerformanceProfilesWorkspace'
+import { PowerAnalysisWorkspace } from '../power/PowerAnalysisWorkspace'
+import { ReproducibilityWorkspace } from '../reproducibility/ReproducibilityWorkspace'
 import {
   AnalysisResponse,
   BenchmarkRecord,
@@ -30,6 +42,8 @@ interface VisualizeWorkspaceProps {
   onOpenChat: () => void
 }
 
+export type WorkspaceTab = 'data' | 'stats' | 'charts' | 'profiles' | 'power' | 'reproducibility'
+
 export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
   filename,
   selectedDatasetFilename,
@@ -44,7 +58,7 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
   onOpenEditor,
   onOpenChat: _onOpenChat,
 }) => {
-  const [activeTab, setActiveTab] = useState<'data' | 'stats' | 'charts'>('data')
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>('data')
   const [workbenchTestType, setWorkbenchTestType] = useState<StatisticalTestType | undefined>(
     undefined
   )
@@ -135,14 +149,14 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
         </div>
       </div>
 
-      {/* Workspace Tabs: 1. Data & Assumptions -> 2. Statistical Workbench -> 3. Interactive Visualizations */}
+      {/* Workspace Tabs: 7 Integrated Scientific Phases */}
       <Tabs
         value={activeTab}
-        onValueChange={(val) => setActiveTab(val as 'data' | 'stats' | 'charts')}
+        onValueChange={(val) => setActiveTab(val as WorkspaceTab)}
         className="space-y-6"
       >
-        <div className="border-b border-border/80 pb-2 flex items-center justify-between">
-          <TabsList className="bg-muted p-1 border border-border/60">
+        <div className="border-b border-border/80 pb-2 flex flex-col md:flex-row md:items-center justify-between gap-2 overflow-x-auto">
+          <TabsList className="bg-muted p-1 border border-border/60 flex-wrap h-auto gap-1">
             <TabsTrigger value="data" className="gap-2 text-xs font-semibold">
               <Database className="w-3.5 h-3.5 text-emerald-600" />
               Data &amp; Assumptions
@@ -160,12 +174,27 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
 
             <TabsTrigger value="charts" className="gap-2 text-xs font-semibold">
               <PieChart className="w-3.5 h-3.5 text-sky-600" />
-              Interactive Visualizations
+              Visualizations
+            </TabsTrigger>
+
+            <TabsTrigger value="profiles" className="gap-2 text-xs font-semibold">
+              <TrendingUp className="w-3.5 h-3.5 text-violet-600" />
+              Performance Profiles
+            </TabsTrigger>
+
+            <TabsTrigger value="power" className="gap-2 text-xs font-semibold">
+              <Activity className="w-3.5 h-3.5 text-amber-600" />
+              Power &amp; Design
+            </TabsTrigger>
+
+            <TabsTrigger value="reproducibility" className="gap-2 text-xs font-semibold">
+              <Code className="w-3.5 h-3.5 text-blue-600" />
+              Reproducibility
             </TabsTrigger>
           </TabsList>
 
-          <span className="text-xs text-muted-foreground font-mono hidden md:block">
-            Significance threshold: α = {alpha}
+          <span className="text-xs text-muted-foreground font-mono hidden lg:block shrink-0">
+            Significance: α = {alpha}
           </span>
         </div>
 
@@ -199,6 +228,39 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
         {/* STEP 3: INTERACTIVE CHARTS & VISUALIZATIONS */}
         <TabsContent value="charts" className="space-y-5 focus-visible:outline-none">
           <ChartWorkbench
+            records={records}
+            alpha={alpha}
+            apiOnline={apiOnline}
+            selectedDatasetFilename={selectedDatasetFilename || filename}
+            rawCsv={rawCsv}
+          />
+        </TabsContent>
+
+        {/* STEP 4: DOLAN-MORE PERFORMANCE PROFILES & META-BENCHMARK */}
+        <TabsContent value="profiles" className="space-y-5 focus-visible:outline-none">
+          <PerformanceProfilesWorkspace
+            records={records}
+            alpha={alpha}
+            apiOnline={apiOnline}
+            selectedDatasetFilename={selectedDatasetFilename || filename}
+            rawCsv={rawCsv}
+          />
+        </TabsContent>
+
+        {/* STEP 5: EXPERIMENTAL DESIGN & STATISTICAL POWER */}
+        <TabsContent value="power" className="space-y-5 focus-visible:outline-none">
+          <PowerAnalysisWorkspace
+            records={records}
+            alpha={alpha}
+            apiOnline={apiOnline}
+            selectedDatasetFilename={selectedDatasetFilename || filename}
+            rawCsv={rawCsv}
+          />
+        </TabsContent>
+
+        {/* STEP 6: REPRODUCIBILITY & FAIR SCRIPTING */}
+        <TabsContent value="reproducibility" className="space-y-5 focus-visible:outline-none">
+          <ReproducibilityWorkspace
             records={records}
             alpha={alpha}
             apiOnline={apiOnline}

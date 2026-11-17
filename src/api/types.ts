@@ -583,3 +583,105 @@ export interface AppConfig {
   chartFontScale: number
   theme: 'dark' | 'light'
 }
+
+// 1. Performance Profiles & Meta-Benchmark
+export interface AlgorithmProfileCurve {
+  algorithm: string
+  tau_values: number[]
+  rho_values: number[]
+  efficiency: number
+  robustness: number
+}
+
+export interface WinTieLossCell {
+  algo_row: string
+  algo_col: string
+  wins: number
+  ties: number
+  losses: number
+  net: number
+}
+
+export interface GlobalMetaRankingItem {
+  rank: number
+  algorithm: string
+  efficiency: number
+  robustness: number
+  total_wins: number
+  total_ties: number
+  total_losses: number
+  net_score: number
+  copeland_score: number
+}
+
+export interface PerformanceProfilesResponse {
+  metric: string
+  maximize: boolean
+  alpha: number
+  tau_values: number[]
+  curves: AlgorithmProfileCurve[]
+  wtl_matrix: WinTieLossCell[][]
+  meta_rankings: GlobalMetaRankingItem[]
+}
+
+// 3. Experimental Design & Power Analysis
+export interface PowerCurveSeries {
+  effect_size_label: string
+  effect_size_value: number
+  sample_sizes: number[]
+  power_values: number[]
+}
+
+export interface SampleSizeRecommendation {
+  target_power: number
+  alpha: number
+  effect_size: number
+  effect_size_label: string
+  recommended_n_independent: number
+  recommended_n_paired: number
+  recommended_n_nonparametric: number
+}
+
+export interface PostHocPowerItem {
+  algo_1: string
+  algo_2: string
+  instance: string
+  metric: string
+  n_samples: number
+  cohens_d: number
+  a12: number
+  achieved_power: number
+  power_status: string
+  is_significant: boolean
+  recommendation: string
+}
+
+export interface PowerAnalysisResponse {
+  alpha: number
+  target_power: number
+  target_effect_size: number
+  sample_size_recommendations: SampleSizeRecommendation[]
+  power_curves: PowerCurveSeries[]
+  post_hoc_audit: PostHocPowerItem[]
+  overall_power_health: string
+}
+
+// 4. Reproducibility & Scripting
+export interface EnvironmentManifest {
+  python_version: string
+  platform: string
+  saes_version: string
+  scipy_version: string
+  numpy_version: string
+  pandas_version: string
+  dataset_checksum_sha256: string
+  timestamp: string
+  row_count: number
+  runs_per_cell: number
+}
+
+export interface ReproducibilityResponse {
+  python_script: string
+  jupyter_notebook_json: string
+  manifest: EnvironmentManifest
+}
