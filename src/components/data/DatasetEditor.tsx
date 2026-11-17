@@ -29,6 +29,7 @@ interface DatasetEditorProps {
   isValidating: boolean
   apiOnline: boolean
   onBack: () => void
+  backLabel?: string
   onSave: (filename: string, content: string) => Promise<void>
   onSaveAndVisualize: (filename: string, content: string) => Promise<void>
   onRevalidate: (customCsv?: string) => Promise<ValidationResponse | undefined>
@@ -43,6 +44,7 @@ export const DatasetEditor: React.FC<DatasetEditorProps> = ({
   isValidating: _isValidating,
   apiOnline: _apiOnline,
   onBack,
+  backLabel = 'Back to Datasets',
   onSave,
   onSaveAndVisualize,
   onRevalidate,
@@ -244,7 +246,7 @@ export const DatasetEditor: React.FC<DatasetEditorProps> = ({
             className="gap-1 text-xs -ml-2 text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Datasets
+            {backLabel}
           </Button>
           <span className="text-muted-foreground/40">/</span>
           <div className="flex items-center gap-2">

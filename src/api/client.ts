@@ -3,11 +3,16 @@ import {
   AnalysisResponse,
   ChatRequest,
   ChatResponse,
+  DataExplorationQueryParams,
+  DataExplorationResponse,
   DatasetDetail,
   DatasetItem,
   HealthResponse,
   ProviderProbeResponse,
   RankingAnalysisResponse,
+  StatisticalTableQueryParams,
+  StatisticalTableResponse,
+  TableExportFormat,
   ValidationResponse,
 } from './types'
 
@@ -262,6 +267,292 @@ export class SaesApiClient {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+    })
+    return res.data
+  }
+
+  private appendTableParams(formData: FormData, params: StatisticalTableQueryParams): void {
+    if (params.metric) formData.append('metric', params.metric)
+    if (params.table_type) formData.append('table_type', params.table_type)
+    if (params.test_type) formData.append('test_type', params.test_type)
+    if (params.posthoc_correction) formData.append('posthoc_correction', params.posthoc_correction)
+    if (params.summary_stat) formData.append('summary_stat', params.summary_stat)
+    if (params.reference_algorithm) {
+      formData.append('reference_algorithm', params.reference_algorithm)
+    }
+    if (params.scope) formData.append('scope', params.scope)
+    if (params.selected_instance) formData.append('selected_instance', params.selected_instance)
+    if (params.algorithms_filter && params.algorithms_filter.length > 0) {
+      formData.append('algorithms_filter', params.algorithms_filter.join(','))
+    }
+    if (params.instances_filter && params.instances_filter.length > 0) {
+      formData.append('instances_filter', params.instances_filter.join(','))
+    }
+    if (params.alpha !== undefined) formData.append('alpha', params.alpha.toString())
+    if (params.precision !== undefined) formData.append('precision', params.precision.toString())
+    if (params.latex_document_mode)
+      formData.append('latex_document_mode', params.latex_document_mode)
+    if (params.latex_notation) formData.append('latex_notation', params.latex_notation)
+    if (params.pdf_title) formData.append('pdf_title', params.pdf_title)
+    if (params.pdf_caption) formData.append('pdf_caption', params.pdf_caption)
+    if (params.pdf_theme) formData.append('pdf_theme', params.pdf_theme)
+    if (params.pdf_orientation) formData.append('pdf_orientation', params.pdf_orientation)
+    if (params.pdf_font_size !== undefined)
+      formData.append('pdf_font_size', params.pdf_font_size.toString())
+    if (params.pdf_highlight_best !== undefined)
+      formData.append('pdf_highlight_best', params.pdf_highlight_best ? 'true' : 'false')
+    if (params.pdf_show_zebra !== undefined)
+      formData.append('pdf_show_zebra', params.pdf_show_zebra ? 'true' : 'false')
+    if (params.pdf_grid_style) formData.append('pdf_grid_style', params.pdf_grid_style)
+  }
+
+  private buildTableQueryRecord(
+    params: StatisticalTableQueryParams
+  ): Record<string, string | number> {
+    const q: Record<string, string | number> = {}
+    if (params.metric) q.metric = params.metric
+    if (params.table_type) q.table_type = params.table_type
+    if (params.test_type) q.test_type = params.test_type
+    if (params.posthoc_correction) q.posthoc_correction = params.posthoc_correction
+    if (params.summary_stat) q.summary_stat = params.summary_stat
+    if (params.reference_algorithm) q.reference_algorithm = params.reference_algorithm
+    if (params.scope) q.scope = params.scope
+    if (params.selected_instance) q.selected_instance = params.selected_instance
+    if (params.algorithms_filter && params.algorithms_filter.length > 0) {
+      q.algorithms_filter = params.algorithms_filter.join(',')
+    }
+    if (params.instances_filter && params.instances_filter.length > 0) {
+      q.instances_filter = params.instances_filter.join(',')
+    }
+    if (params.alpha !== undefined) q.alpha = params.alpha
+    if (params.precision !== undefined) q.precision = params.precision
+    if (params.latex_document_mode) q.latex_document_mode = params.latex_document_mode
+    if (params.latex_notation) q.latex_notation = params.latex_notation
+    if (params.pdf_title) q.pdf_title = params.pdf_title
+    if (params.pdf_caption) q.pdf_caption = params.pdf_caption
+    if (params.pdf_theme) q.pdf_theme = params.pdf_theme
+    if (params.pdf_orientation) q.pdf_orientation = params.pdf_orientation
+    if (params.pdf_font_size !== undefined) q.pdf_font_size = params.pdf_font_size
+    if (params.pdf_highlight_best !== undefined)
+      q.pdf_highlight_best = params.pdf_highlight_best ? 'true' : 'false'
+    if (params.pdf_show_zebra !== undefined)
+      q.pdf_show_zebra = params.pdf_show_zebra ? 'true' : 'false'
+    if (params.pdf_grid_style) q.pdf_grid_style = params.pdf_grid_style
+    return q
+  }
+
+  /**
+   * Generate a statistical benchmark table (ANOVA, Friedman, Wilcoxon, Pairwise) for a saved dataset via HTTP GET
+   */
+  public async generateTableFromPath(
+    filename: string,
+    params: StatisticalTableQueryParams = {}
+  ): Promise<StatisticalTableResponse> {
+    const res = await this.client.get<StatisticalTableResponse>(
+      `/api/v1/datasets/${encodeURIComponent(filename)}/tables`,
+      {
+        params: this.buildTableQueryRecord(params),
+      }
+    )
+    return res.data
+  }
+
+  /**
+   * Generate a statistical benchmark table (ANOVA, Friedman, Wilcoxon, Pairwise) from raw CSV
+   */
+  public async generateTableFromCsv(
+    fileOrContent: File | Blob | string,
+    params: StatisticalTableQueryParams = {},
+    filename: string = 'data.csv'
+  ): Promise<StatisticalTableResponse> {
+    const formData = new FormData()
+    if (typeof fileOrContent === 'string') {
+      const blob = new Blob([fileOrContent], { type: 'text/csv' })
+      formData.append('file', blob, filename)
+    } else {
+      formData.append('file', fileOrContent, filename)
+    }
+    this.appendTableParams(formData, params)
+    const res = await this.client.post<StatisticalTableResponse>('/api/v1/tables', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return res.data
+  }
+
+  /**
+   * Export a statistical benchmark table for a saved dataset in PDF, DOCX, LaTeX, CSV, Markdown, or HTML
+   */
+  public async exportTableFromPath(
+    filename: string,
+    exportFormat: TableExportFormat,
+    params: StatisticalTableQueryParams = {}
+  ): Promise<Blob> {
+    const res = await this.client.get(
+      `/api/v1/datasets/${encodeURIComponent(filename)}/tables/export`,
+      {
+        params: {
+          ...this.buildTableQueryRecord(params),
+          export_format: exportFormat,
+        },
+        responseType: 'blob',
+      }
+    )
+    return res.data
+  }
+
+  /**
+   * Export a statistical benchmark table from raw CSV in PDF, DOCX, LaTeX, CSV, Markdown, or HTML
+   */
+  public async exportTableFromCsv(
+    fileOrContent: File | Blob | string,
+    exportFormat: TableExportFormat,
+    params: StatisticalTableQueryParams = {},
+    filename: string = 'data.csv'
+  ): Promise<Blob> {
+    const formData = new FormData()
+    if (typeof fileOrContent === 'string') {
+      const blob = new Blob([fileOrContent], { type: 'text/csv' })
+      formData.append('file', blob, filename)
+    } else {
+      formData.append('file', fileOrContent, filename)
+    }
+    formData.append('export_format', exportFormat)
+    this.appendTableParams(formData, params)
+    const res = await this.client.post('/api/v1/tables/export', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      responseType: 'blob',
+    })
+    return res.data
+  }
+
+  private appendExploreParams(formData: FormData, params: DataExplorationQueryParams): void {
+    if (params.metrics && params.metrics.length > 0) {
+      formData.append('metrics', params.metrics.join(','))
+    }
+    if (params.algorithms && params.algorithms.length > 0) {
+      formData.append('algorithms', params.algorithms.join(','))
+    }
+    if (params.instances && params.instances.length > 0) {
+      formData.append('instances', params.instances.join(','))
+    }
+    if (params.alpha !== undefined) {
+      formData.append('alpha', params.alpha.toString())
+    }
+  }
+
+  private buildExploreQueryRecord(
+    params: DataExplorationQueryParams
+  ): Record<string, string | number> {
+    const q: Record<string, string | number> = {}
+    if (params.metrics && params.metrics.length > 0) q.metrics = params.metrics.join(',')
+    if (params.algorithms && params.algorithms.length > 0) {
+      q.algorithms = params.algorithms.join(',')
+    }
+    if (params.instances && params.instances.length > 0) q.instances = params.instances.join(',')
+    if (params.alpha !== undefined) q.alpha = params.alpha
+    return q
+  }
+
+  /**
+   * Explore a saved dataset via HTTP GET: reveal multi-metric pivots, normality profiles, and test recommendations
+   */
+  public async exploreDatasetFromPath(
+    filename: string,
+    params: DataExplorationQueryParams = {}
+  ): Promise<DataExplorationResponse> {
+    const res = await this.client.get<DataExplorationResponse>(
+      `/api/v1/datasets/${encodeURIComponent(filename)}/explore`,
+      {
+        params: this.buildExploreQueryRecord(params),
+      }
+    )
+    return res.data
+  }
+
+  /**
+   * Explore raw CSV dataset: reveal multi-metric pivots, normality profiles, and test recommendations
+   */
+  public async exploreDatasetFromCsv(
+    fileOrContent: File | Blob | string,
+    params: DataExplorationQueryParams = {},
+    filename: string = 'data.csv'
+  ): Promise<DataExplorationResponse> {
+    const formData = new FormData()
+    if (typeof fileOrContent === 'string') {
+      const blob = new Blob([fileOrContent], { type: 'text/csv' })
+      formData.append('file', blob, filename)
+    } else {
+      formData.append('file', fileOrContent, filename)
+    }
+    this.appendExploreParams(formData, params)
+    const res = await this.client.post<DataExplorationResponse>('/api/v1/explore', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return res.data
+  }
+
+  /**
+   * Export an Observations & Data exploration view for a saved dataset in PDF, DOCX, LaTeX, CSV, Markdown, or HTML
+   */
+  public async exportExplorationFromPath(
+    filename: string,
+    exportFormat: TableExportFormat,
+    viewMode: string = 'reveal_metrics',
+    statFormat: string = 'mean_std',
+    normalityFilter: string = 'all',
+    params: DataExplorationQueryParams = {}
+  ): Promise<Blob> {
+    const res = await this.client.get(
+      `/api/v1/datasets/${encodeURIComponent(filename)}/explore/export`,
+      {
+        params: {
+          ...this.buildExploreQueryRecord(params),
+          export_format: exportFormat,
+          view_mode: viewMode,
+          stat_format: statFormat,
+          normality_filter: normalityFilter,
+        },
+        responseType: 'blob',
+      }
+    )
+    return res.data
+  }
+
+  /**
+   * Export an Observations & Data exploration view from raw CSV in PDF, DOCX, LaTeX, CSV, Markdown, or HTML
+   */
+  public async exportExplorationFromCsv(
+    fileOrContent: File | Blob | string,
+    exportFormat: TableExportFormat,
+    viewMode: string = 'reveal_metrics',
+    statFormat: string = 'mean_std',
+    normalityFilter: string = 'all',
+    params: DataExplorationQueryParams = {},
+    filename: string = 'data.csv'
+  ): Promise<Blob> {
+    const formData = new FormData()
+    if (typeof fileOrContent === 'string') {
+      const blob = new Blob([fileOrContent], { type: 'text/csv' })
+      formData.append('file', blob, filename)
+    } else {
+      formData.append('file', fileOrContent, filename)
+    }
+    formData.append('export_format', exportFormat)
+    formData.append('view_mode', viewMode)
+    formData.append('stat_format', statFormat)
+    formData.append('normality_filter', normalityFilter)
+    this.appendExploreParams(formData, params)
+    const res = await this.client.post('/api/v1/explore/export', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      responseType: 'blob',
     })
     return res.data
   }

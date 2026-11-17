@@ -24,6 +24,7 @@ type AppView = 'hub' | 'fix-issues' | 'editor' | 'visualize'
 
 export function App() {
   const [view, setView] = useState<AppView>('hub')
+  const [editorOriginView, setEditorOriginView] = useState<'hub' | 'visualize'>('hub')
   const { isTauri, openDesktopFile } = useTauri()
 
   const [stagedUpload, setStagedUpload] = useState<{
@@ -171,6 +172,7 @@ export function App() {
       if (selectedDatasetFilename !== targetFilename) {
         await selectDataset(targetFilename)
       }
+      setEditorOriginView('hub')
       setView('editor')
       return
     }
@@ -186,6 +188,7 @@ export function App() {
     if (selectedDatasetFilename !== targetFilename) {
       await selectDataset(targetFilename)
     }
+    setEditorOriginView('hub')
     setView('editor')
   }
 
@@ -202,6 +205,7 @@ export function App() {
     await selectDataset(targetFilename)
     const validity = datasetsValidity[targetFilename]
     if (validity && !validity.isValid) {
+      setEditorOriginView('hub')
       setView('editor')
     } else if (view === 'hub') {
       setView('visualize')
@@ -312,7 +316,8 @@ export function App() {
             validation={validation}
             isValidating={isValidating}
             apiOnline={apiOnline}
-            onBack={() => setView('hub')}
+            onBack={() => setView(editorOriginView)}
+            backLabel={editorOriginView === 'visualize' ? 'Back to Analysis' : 'Back to Datasets'}
             onSave={saveDataset}
             onSaveAndVisualize={async (fn, content) => {
               await saveDataset(fn, content)
@@ -340,7 +345,10 @@ export function App() {
             onAlphaChange={setAlpha}
             onRunAnalysis={runAnalysis}
             onBackToHub={() => setView('hub')}
-            onOpenEditor={() => setView('editor')}
+            onOpenEditor={() => {
+              setEditorOriginView('visualize')
+              setView('editor')
+            }}
             onOpenChat={() => setIsChatOpen(true)}
           />
         )}

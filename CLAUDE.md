@@ -9,7 +9,14 @@
 
 **Who**: SAES development team.
 
-**Goal**: Provide a publication-grade interactive client that connects with `saes` REST API (`http://127.0.0.1:8000`) and provides full offline fallback inspection and repair tools.
+**Goal**: Provide a publication-grade interactive client that connects with the `saes` REST API (`http://127.0.0.1:8000`) and `saes-ai` REST API (`http://127.0.0.1:8001`).
+
+---
+
+## Non-Negotiable Architecture Rules (Thin Client & API-First)
+
+1. **Zero Client-Side Domain Computation**: `saes-ui` MUST NOT perform statistical calculations, hypothesis testing, dataset validation, or data repairs locally. It must delegate all domain operations to the backend REST APIs (`saes` and `saes-ai`).
+2. **Python Programmatic API Parity**: Every feature added to `saes-ui` must first be implemented in the Python programmatic API (`saes` or `saes-ai`) and exposed via FastAPI endpoints before being integrated into the UI.
 
 ---
 

@@ -1,11 +1,17 @@
 import React, { useState } from 'react'
-import { ArrowLeft, BarChart2, PieChart, Database, Play, Activity, FileEdit } from 'lucide-react'
+import { ArrowLeft, BarChart2, PieChart, Database, FileEdit } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
 import { ChartWorkbench } from '../charts/ChartWorkbench'
 import { StatsTable } from '../stats/StatsTable'
 import { DataTable } from '../data/DataTable'
-import { AnalysisResponse, BenchmarkRecord, DatasetSummary } from '../../api/types'
+import {
+  AnalysisResponse,
+  BenchmarkRecord,
+  DatasetSummary,
+  StatisticalTestType,
+  TableType,
+} from '../../api/types'
 
 interface VisualizeWorkspaceProps {
   filename: string
@@ -15,10 +21,10 @@ interface VisualizeWorkspaceProps {
   summary: DatasetSummary | null
   analysis: AnalysisResponse | null
   alpha: number
-  isAnalyzing: boolean
+  isAnalyzing?: boolean
   apiOnline: boolean
   onAlphaChange: (alpha: number) => void
-  onRunAnalysis: () => Promise<void>
+  onRunAnalysis?: () => Promise<void>
   onBackToHub: () => void
   onOpenEditor: () => void
   onOpenChat: () => void
@@ -32,18 +38,27 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
   summary,
   analysis,
   alpha,
-  isAnalyzing,
   apiOnline,
   onAlphaChange,
-  onRunAnalysis,
   onBackToHub,
   onOpenEditor,
   onOpenChat: _onOpenChat,
 }) => {
-  const [activeTab, setActiveTab] = useState<'charts' | 'stats' | 'data'>('charts')
+  const [activeTab, setActiveTab] = useState<'data' | 'stats' | 'charts'>('data')
+  const [workbenchTestType, setWorkbenchTestType] = useState<StatisticalTestType | undefined>(
+    undefined
+  )
+  const [workbenchTableType, setWorkbenchTableType] = useState<TableType | undefined>(undefined)
+  const [workbenchMetric, setWorkbenchMetric] = useState<string | undefined>(undefined)
 
-  const handleRunAnalysisWithTabSwitch = async () => {
-    await onRunAnalysis()
+  const handleSelectRecommendedTest = (
+    testId: StatisticalTestType,
+    tableType: TableType,
+    metric?: string
+  ) => {
+    setWorkbenchTestType(testId)
+    setWorkbenchTableType(tableType)
+    if (metric) setWorkbenchMetric(metric)
     setActiveTab('stats')
   }
 
@@ -117,45 +132,20 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
             <FileEdit className="w-3.5 h-3.5 text-muted-foreground" />
             Edit Data
           </Button>
-
-          {/* Run Automated Statistical Analysis Button */}
-          <Button
-            size="sm"
-            onClick={handleRunAnalysisWithTabSwitch}
-            disabled={isAnalyzing || !apiOnline || records.length === 0}
-            className="h-8 gap-1.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-sm disabled:opacity-50"
-            title={
-              !apiOnline
-                ? 'Backend API required to run automated hypothesis testing'
-                : 'Execute automated hypothesis tests, normality checks, and effect sizes'
-            }
-          >
-            {isAnalyzing ? (
-              <>
-                <Activity className="w-3.5 h-3.5 animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <Play className="w-3.5 h-3.5 fill-current" />
-                Run Statistical Analysis
-              </>
-            )}
-          </Button>
         </div>
       </div>
 
-      {/* Workspace Tabs: Clean, uncluttered, focused */}
+      {/* Workspace Tabs: 1. Data & Assumptions -> 2. Statistical Workbench -> 3. Interactive Visualizations */}
       <Tabs
         value={activeTab}
-        onValueChange={(val) => setActiveTab(val as 'charts' | 'stats' | 'data')}
+        onValueChange={(val) => setActiveTab(val as 'data' | 'stats' | 'charts')}
         className="space-y-6"
       >
         <div className="border-b border-border/80 pb-2 flex items-center justify-between">
           <TabsList className="bg-muted p-1 border border-border/60">
-            <TabsTrigger value="charts" className="gap-2 text-xs font-semibold">
-              <PieChart className="w-3.5 h-3.5 text-sky-600" />
-              Interactive Visualizations
+            <TabsTrigger value="data" className="gap-2 text-xs font-semibold">
+              <Database className="w-3.5 h-3.5 text-emerald-600" />
+              Data &amp; Assumptions
             </TabsTrigger>
 
             <TabsTrigger value="stats" className="gap-2 text-xs font-semibold">
@@ -168,9 +158,9 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
               )}
             </TabsTrigger>
 
-            <TabsTrigger value="data" className="gap-2 text-xs font-semibold">
-              <Database className="w-3.5 h-3.5 text-emerald-600" />
-              Observations &amp; Data
+            <TabsTrigger value="charts" className="gap-2 text-xs font-semibold">
+              <PieChart className="w-3.5 h-3.5 text-sky-600" />
+              Interactive Visualizations
             </TabsTrigger>
           </TabsList>
 
@@ -179,7 +169,34 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
           </span>
         </div>
 
-        {/* TAB 1: INTERACTIVE CHARTS */}
+        {/* STEP 1: DATA EXPLORATION & STATISTICAL ASSUMPTIONS */}
+        <TabsContent value="data" className="space-y-5 focus-visible:outline-none">
+          <DataTable
+            data={records}
+            alpha={alpha}
+            apiOnline={apiOnline}
+            selectedDatasetFilename={selectedDatasetFilename || filename}
+            rawCsv={rawCsv}
+            onSelectRecommendedTest={handleSelectRecommendedTest}
+          />
+        </TabsContent>
+
+        {/* STEP 2: STATISTICAL WORKBENCH & HYPOTHESIS TESTING */}
+        <TabsContent value="stats" className="space-y-5 focus-visible:outline-none">
+          <StatsTable
+            results={analysis?.results}
+            records={records}
+            alpha={alpha}
+            apiOnline={apiOnline}
+            selectedDatasetFilename={selectedDatasetFilename || filename}
+            rawCsv={rawCsv}
+            initialTestType={workbenchTestType}
+            initialTableType={workbenchTableType}
+            initialMetric={workbenchMetric}
+          />
+        </TabsContent>
+
+        {/* STEP 3: INTERACTIVE CHARTS & VISUALIZATIONS */}
         <TabsContent value="charts" className="space-y-5 focus-visible:outline-none">
           <ChartWorkbench
             records={records}
@@ -188,45 +205,6 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
             selectedDatasetFilename={selectedDatasetFilename || filename}
             rawCsv={rawCsv}
           />
-        </TabsContent>
-
-        {/* TAB 2: STATISTICAL WORKBENCH */}
-        <TabsContent value="stats" className="space-y-5 focus-visible:outline-none">
-          {analysis ? (
-            <StatsTable results={analysis.results} alpha={alpha} />
-          ) : (
-            <div className="rounded-xl border border-dashed border-border p-12 text-center space-y-4 bg-card shadow-sm">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 mx-auto flex items-center justify-center">
-                <BarChart2 className="w-6 h-6" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-semibold text-foreground">
-                  Automated Hypothesis Testing Not Yet Executed
-                </h3>
-                <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                  Click <strong>Run Statistical Analysis</strong> to automatically test normality
-                  (Shapiro-Wilk), homoscedasticity (Levene), select appropriate parametric or
-                  non-parametric tests, and compute effect sizes.
-                </p>
-              </div>
-
-              {apiOnline && (
-                <Button
-                  onClick={handleRunAnalysisWithTabSwitch}
-                  disabled={isAnalyzing}
-                  className="gap-2 text-xs bg-primary text-primary-foreground font-semibold shadow-sm"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  {isAnalyzing ? 'Running Calculations...' : 'Execute Analysis Now'}
-                </Button>
-              )}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* TAB 3: DATA OBSERVATIONS */}
-        <TabsContent value="data" className="space-y-5 focus-visible:outline-none">
-          <DataTable data={records} />
         </TabsContent>
       </Tabs>
     </div>
