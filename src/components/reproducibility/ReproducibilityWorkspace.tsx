@@ -1,8 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { BenchmarkRecord, ReproducibilityResponse } from '../../api/types'
 import { apiClient } from '../../api/client'
+import {
+  getReproducibilityCacheKey,
+  getCachedReproducibility,
+  setCachedReproducibility,
+} from '../../lib/workspaceCache'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
+import { SelectDropdown } from '../ui/select-dropdown'
 import {
   Code,
   Copy,
@@ -37,9 +43,6 @@ export const ReproducibilityWorkspace: React.FC<ReproducibilityWorkspaceProps> =
   selectedDatasetFilename,
   rawCsv,
 }) => {
-  const [data, setData] = useState<ReproducibilityResponse | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [selectedMetric, setSelectedMetric] = useState<string | undefined>(undefined)
   const [activeSubTab, setActiveSubTab] = useState<ReproducibilitySubTab>('script')
 
@@ -53,40 +56,69 @@ export const ReproducibilityWorkspace: React.FC<ReproducibilityWorkspaceProps> =
 
   const targetMetric = selectedMetric || availableMetrics[0] || 'HV'
 
-  const fetchData = useCallback(async () => {
-    if (!apiOnline) return
-    setLoading(true)
-    setError(null)
-    try {
-      let res: ReproducibilityResponse
-      if (selectedDatasetFilename) {
-        res = await apiClient.getReproducibilityFromPath(selectedDatasetFilename, {
-          metric: targetMetric,
-          alpha,
-        })
-      } else if (rawCsv) {
-        res = await apiClient.getReproducibilityFromCsv(rawCsv, {
-          metric: targetMetric,
-          alpha,
-          filename: selectedDatasetFilename || 'benchmark.csv',
-        })
-      } else {
-        setError('No dataset or observations available.')
-        return
+  const datasetId = selectedDatasetFilename || (rawCsv ? `csv-${rawCsv.length}` : 'default')
+  const cacheKey = useMemo(
+    () => getReproducibilityCacheKey(datasetId, targetMetric, alpha),
+    [datasetId, targetMetric, alpha]
+  )
+
+  const [data, setData] = useState<ReproducibilityResponse | null>(
+    () => getCachedReproducibility(cacheKey) ?? null
+  )
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchData = useCallback(
+    async (forceRefresh = false) => {
+      if (!apiOnline) return
+      if (!forceRefresh) {
+        const cached = getCachedReproducibility(cacheKey)
+        if (cached) {
+          setData(cached)
+          return
+        }
       }
-      setData(res)
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : 'Failed to generate reproducibility artifacts'
-      setError(msg)
-    } finally {
-      setLoading(false)
-    }
-  }, [apiOnline, selectedDatasetFilename, rawCsv, targetMetric, alpha])
+
+      setLoading(true)
+      setError(null)
+      try {
+        let res: ReproducibilityResponse
+        if (selectedDatasetFilename) {
+          res = await apiClient.getReproducibilityFromPath(selectedDatasetFilename, {
+            metric: targetMetric,
+            alpha,
+          })
+        } else if (rawCsv) {
+          res = await apiClient.getReproducibilityFromCsv(rawCsv, {
+            metric: targetMetric,
+            alpha,
+            filename: selectedDatasetFilename || 'benchmark.csv',
+          })
+        } else {
+          setError('No dataset or observations available.')
+          return
+        }
+        setCachedReproducibility(cacheKey, res)
+        setData(res)
+      } catch (err: unknown) {
+        const msg =
+          err instanceof Error ? err.message : 'Failed to generate reproducibility artifacts'
+        setError(msg)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [apiOnline, cacheKey, selectedDatasetFilename, rawCsv, targetMetric, alpha]
+  )
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    const cached = getCachedReproducibility(cacheKey)
+    if (cached) {
+      setData(cached)
+    } else {
+      fetchData()
+    }
+  }, [cacheKey, fetchData])
 
   const handleCopyScript = () => {
     if (!data) return
@@ -155,7 +187,7 @@ export const ReproducibilityWorkspace: React.FC<ReproducibilityWorkspaceProps> =
             <button
               type="button"
               onClick={() => setActiveSubTab('script')}
-              title="Standalone executable Python script (import saes) to replicate full benchmark results"
+              title="Standalone executable Python script (import saesV2) to replicate full benchmark results"
               className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeSubTab === 'script'
                   ? 'bg-primary text-primary-foreground shadow-xs'
@@ -201,20 +233,13 @@ export const ReproducibilityWorkspace: React.FC<ReproducibilityWorkspaceProps> =
           <div className="flex flex-wrap items-center gap-2">
             {/* Metric Selector */}
             {availableMetrics.length > 1 && (
-              <div className="flex items-center gap-1.5 text-xs">
-                <span className="text-muted-foreground font-medium">Metric:</span>
-                <select
-                  value={targetMetric}
-                  onChange={(e) => setSelectedMetric(e.target.value)}
-                  className="h-8 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-medium"
-                >
-                  {availableMetrics.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <SelectDropdown
+                label="Metric:"
+                value={targetMetric}
+                options={availableMetrics.map((m) => ({ value: m, label: m }))}
+                onChange={setSelectedMetric}
+                triggerClassName="h-8 font-mono font-medium"
+              />
             )}
 
             {/* Refresh */}
@@ -222,7 +247,7 @@ export const ReproducibilityWorkspace: React.FC<ReproducibilityWorkspaceProps> =
               type="button"
               variant="outline"
               size="sm"
-              onClick={fetchData}
+              onClick={() => fetchData(true)}
               disabled={loading}
               className="h-8 gap-1.5 text-xs rounded-lg"
             >
@@ -394,7 +419,7 @@ export const ReproducibilityWorkspace: React.FC<ReproducibilityWorkspaceProps> =
                     <Badge variant="outline" className="text-[10px]">
                       Cell 1
                     </Badge>
-                    <span>Import SAES &amp; Load Benchmark Dataset</span>
+                    <span>Import saesV2 &amp; Load Benchmark Dataset</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[10px]">
@@ -497,7 +522,7 @@ export const ReproducibilityWorkspace: React.FC<ReproducibilityWorkspaceProps> =
                     </div>
 
                     <div className="flex justify-between py-1.5 border-b border-border/60">
-                      <span className="text-muted-foreground">SAES Core Version:</span>
+                      <span className="text-muted-foreground">SAESv2 Core Version:</span>
                       <span className="font-mono font-semibold text-indigo-600">
                         v{data.manifest.saes_version}
                       </span>

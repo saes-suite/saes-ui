@@ -23,6 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog'
+import { SelectDropdown } from '../ui/select-dropdown'
 import { PlotlyChart } from '../charts/PlotlyChart'
 import {
   Award,
@@ -49,6 +50,9 @@ import {
   Trophy,
   Type,
   AlertTriangle,
+  ExternalLink,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react'
 
 interface StatsTableProps {
@@ -64,7 +68,7 @@ interface StatsTableProps {
   onExportCsv?: () => void
 }
 
-type WorkbenchViewMode = 'instance_algorithm' | 'pairwise_matrix' | 'omnibus_posthoc' | 'latex_code'
+type WorkbenchViewMode = 'instance_algorithm' | 'pairwise_matrix' | 'omnibus_posthoc'
 type InstanceTableLens = 'value_symbol' | 'symbol_only' | 'rank_only'
 type PairwiseViewLens = 'case_by_case' | 'general_summary'
 
@@ -306,6 +310,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
   const [pdfPreviewBlobUrl, setPdfPreviewBlobUrl] = useState<string | null>(null)
   const [isPreviewLoading, setIsPreviewLoading] = useState<boolean>(false)
   const [pdfPreviewTab, setPdfPreviewTab] = useState<'visual' | 'vector'>('visual')
+  const [pdfPreviewExpanded, setPdfPreviewExpanded] = useState<boolean>(false)
   const [selectedOtherFormat, setSelectedOtherFormat] = useState<TableExportFormat>('docx')
 
   // Debounced title and caption for auto-updating Vector PDF preview
@@ -353,9 +358,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
 
   const handleSelectViewMode = (mode: WorkbenchViewMode) => {
     setViewMode(mode)
-    if (mode !== 'latex_code') {
-      setActiveTableType(mode)
-    }
+    setActiveTableType(mode)
   }
 
   // Interactive Drill-Down Inspector States
@@ -637,70 +640,52 @@ export const StatsTable: React.FC<StatsTableProps> = ({
       {/* 1. CLEAN WORKBENCH HEADER & CONTROLS */}
       <div className="rounded-2xl border border-border/80 bg-card shadow-xs p-5 space-y-4">
         {/* Top Navigation Row: View Tabs + Actions */}
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pb-4 border-b border-border/60">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-4 border-b border-border/60">
+          <div className="inline-flex items-center p-1 rounded-xl bg-muted/60 border border-border/60 gap-1 overflow-x-auto max-w-full shrink-0">
             <button
               type="button"
               onClick={() => handleSelectViewMode('instance_algorithm')}
-              title="Compares algorithm performance across individual benchmark instances against baseline"
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              title="Compares algorithm performance across individual benchmark instances against baseline (+ / ≈ / − vs Ref)"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 viewMode === 'instance_algorithm'
                   ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
               <Table2 className="w-3.5 h-3.5" />
               <span>Instance Comparison</span>
-              <span className="text-[10px] opacity-75 font-normal">(+ / ≈ / − vs Ref)</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleSelectViewMode('pairwise_matrix')}
-              title="Head-to-head statistical tests & effect sizes between all algorithm pairs"
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              title="Head-to-head statistical tests & effect sizes between all algorithm pairs (1 vs 1)"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 viewMode === 'pairwise_matrix'
                   ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
               <Grid className="w-3.5 h-3.5" />
               <span>Pairwise Matrix</span>
-              <span className="text-[10px] opacity-75 font-normal">(1 vs 1)</span>
             </button>
 
             <button
               type="button"
               onClick={() => handleSelectViewMode('omnibus_posthoc')}
               title="Friedman & ANOVA multi-group omnibus tests, average ranks, and critical differences"
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 viewMode === 'omnibus_posthoc'
                   ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
               <Trophy className="w-3.5 h-3.5" />
-              <span>Global Rankings &amp; Post-Hoc</span>
-              <span className="text-[10px] opacity-75 font-normal">(Omnibus &amp; CD)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleSelectViewMode('latex_code')}
-              title="Generate copyable publication-grade LaTeX tables and Markdown previews"
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                viewMode === 'latex_code'
-                  ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
-              }`}
-            >
-              <Code2 className="w-3.5 h-3.5" />
-              <span>Publication Code</span>
-              <span className="text-[10px] opacity-75 font-normal">(LaTeX &amp; MD)</span>
+              <span>Global Rankings</span>
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0 self-end lg:self-auto">
             <Button
               type="button"
               variant="ghost"
@@ -749,106 +734,79 @@ export const StatsTable: React.FC<StatsTableProps> = ({
           </div>
         </div>
 
-        {/* Primary Controls Row: Clean 4-column layout */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="space-y-1.5">
+        {/* Primary Controls Row: Proportional 12-column layout */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-start">
+          <div className="space-y-1.5 sm:col-span-1 lg:col-span-3 xl:col-span-2">
             <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
               Evaluation Metric
             </label>
-            <select
+            <SelectDropdown
               value={activeMetric}
-              onChange={(e) => setSelectedMetric(e.target.value)}
-              className="h-9 w-full rounded-lg border border-input bg-background px-3 text-xs font-mono font-semibold focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-            >
-              {availableMetrics.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+              options={availableMetrics.map((m) => ({ value: m, label: m }))}
+              onChange={setSelectedMetric}
+              fullWidth
+              triggerClassName="h-9 font-mono font-semibold"
+            />
           </div>
 
-          <div className="space-y-1.5 lg:col-span-2">
+          <div className="space-y-1.5 sm:col-span-1 lg:col-span-5 xl:col-span-7">
             <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
               <Scale className="w-3.5 h-3.5 text-primary" />
               Statistical Hypothesis Test
             </label>
-            <select
+            <SelectDropdown
               value={testType}
-              onChange={(e) => setTestType(e.target.value as StatisticalTestType)}
-              className="h-9 w-full rounded-lg border border-input bg-background px-3 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-            >
-              <optgroup label="Automated Selection">
-                {TEST_OPTIONS.filter((o) => o.group === 'Automated').map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.shortLabel}
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Non-Parametric Tests (Outlier Robust / Non-Normal)">
-                {TEST_OPTIONS.filter((o) => o.group === 'Non-Parametric').map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.shortLabel}
-                  </option>
-                ))}
-              </optgroup>
-              <optgroup label="Parametric Tests (Normal Distributions)">
-                {TEST_OPTIONS.filter((o) => o.group === 'Parametric').map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.shortLabel}
-                  </option>
-                ))}
-              </optgroup>
-            </select>
+              options={TEST_OPTIONS.map((opt) => ({
+                value: opt.value,
+                label: opt.shortLabel,
+                group: opt.group,
+                desc: opt.desc,
+              }))}
+              onChange={(val) => setTestType(val as StatisticalTestType)}
+              fullWidth
+              triggerClassName="h-9 font-medium"
+            />
             <p className="text-[11px] text-muted-foreground truncate">
               {TEST_OPTIONS.find((o) => o.value === testType)?.desc}
             </p>
           </div>
 
-          {viewMode === 'pairwise_matrix' ? (
-            <div className="space-y-1.5 opacity-60">
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                <span>Control Baseline</span>
-                <span className="text-[10px] text-muted-foreground font-normal lowercase">
-                  (not used in 1vs1 matrix)
-                </span>
-              </label>
-              <select
+          <div className="space-y-1.5 sm:col-span-2 lg:col-span-4 xl:col-span-3">
+            <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+              <span>Control Baseline</span>
+              <span className="text-[10px] text-primary font-normal lowercase">
+                {viewMode === 'pairwise_matrix' ? '(not used in 1vs1)' : '(for + / ≈ / −)'}
+              </span>
+            </label>
+            {viewMode === 'pairwise_matrix' ? (
+              <SelectDropdown
+                value="all_pairs"
+                options={[{ value: 'all_pairs', label: 'All-Pairs Matrix Evaluated' }]}
+                onChange={() => {}}
+                fullWidth
                 disabled
-                className="h-9 w-full rounded-lg border border-input bg-muted/50 px-3 text-xs font-mono text-muted-foreground cursor-not-allowed"
-              >
-                <option>All-Pairs Matrix Evaluated</option>
-              </select>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
-                <span>Control Baseline</span>
-                <span className="text-[10px] text-primary font-normal lowercase">
-                  (for + / ≈ / −)
-                </span>
-              </label>
-              <select
+                triggerClassName="h-9 font-mono text-muted-foreground bg-muted/50 cursor-not-allowed"
+              />
+            ) : (
+              <SelectDropdown
                 value={referenceAlgorithm}
-                onChange={(e) => setReferenceAlgorithm(e.target.value)}
-                className="h-9 w-full rounded-lg border border-input bg-background px-3 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-              >
-                <option value="">Auto (#1 Friedman Rank)</option>
-                {availableAlgorithms.map((a) => (
-                  <option key={a} value={a}>
-                    {a}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+                options={[
+                  { value: '', label: 'Auto (#1 Friedman Rank)' },
+                  ...availableAlgorithms.map((a) => ({ value: a, label: a })),
+                ]}
+                onChange={setReferenceAlgorithm}
+                fullWidth
+                triggerClassName="h-9 font-mono"
+              />
+            )}
+          </div>
         </div>
 
         {/* Collapsible Secondary Options & Subset Filters */}
         {showFilters && (
           <div className="p-4 rounded-xl bg-muted/30 border border-border/60 space-y-4 text-xs">
             {/* Row 1: Statistical Parameters */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-3 border-b border-border/50">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-3 border-b border-border/50 items-start">
               <div className="space-y-1.5">
                 <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                   <span>Multiple Comparison Correction (FWER / FDR)</span>
@@ -856,17 +814,17 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                     (pairwise &amp; post-hoc)
                   </span>
                 </label>
-                <select
+                <SelectDropdown
                   value={posthocCorrection}
-                  onChange={(e) => setPosthocCorrection(e.target.value as PostHocCorrectionType)}
-                  className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-                >
-                  {CORRECTION_OPTIONS.map((c) => (
-                    <option key={c.value} value={c.value}>
-                      {c.shortLabel}
-                    </option>
-                  ))}
-                </select>
+                  options={CORRECTION_OPTIONS.map((c) => ({
+                    value: c.value,
+                    label: c.shortLabel,
+                    desc: c.desc,
+                  }))}
+                  onChange={(val) => setPosthocCorrection(val as PostHocCorrectionType)}
+                  fullWidth
+                  triggerClassName="h-9 font-medium"
+                />
                 <p className="text-[11px] text-muted-foreground truncate">
                   {CORRECTION_OPTIONS.find((c) => c.value === posthocCorrection)?.desc}
                 </p>
@@ -879,17 +837,17 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                     (instance comparison cells)
                   </span>
                 </label>
-                <select
+                <SelectDropdown
                   value={summaryStat}
-                  onChange={(e) => setSummaryStat(e.target.value as SummaryStatMode)}
-                  className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-                >
-                  {SUMMARY_STAT_OPTIONS.map((s) => (
-                    <option key={s.value} value={s.value}>
-                      {s.shortLabel}
-                    </option>
-                  ))}
-                </select>
+                  options={SUMMARY_STAT_OPTIONS.map((s) => ({
+                    value: s.value,
+                    label: s.shortLabel,
+                    desc: s.desc,
+                  }))}
+                  onChange={(val) => setSummaryStat(val as SummaryStatMode)}
+                  fullWidth
+                  triggerClassName="h-9 font-medium"
+                />
                 <p className="text-[11px] text-muted-foreground truncate">
                   {SUMMARY_STAT_OPTIONS.find((s) => s.value === summaryStat)?.desc}
                 </p>
@@ -1867,297 +1825,6 @@ export const StatsTable: React.FC<StatsTableProps> = ({
       )}
 
       {/* =====================================================================
-          VIEW MODE 4: LATEX & MARKDOWN CODE PREVIEW
-         ===================================================================== */}
-      {tableData && viewMode === 'latex_code' && (
-        <div className="space-y-4">
-          {/* Config Bar for LaTeX Generation: Structure, Document Mode & Number Notation */}
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 p-4 rounded-2xl border border-border/70 bg-muted/20 text-xs">
-            <div className="flex flex-wrap items-center gap-6">
-              {/* Table Structure */}
-              <div className="space-y-1.5">
-                <span className="font-semibold text-muted-foreground block text-[11px] uppercase tracking-wider">
-                  Table Structure
-                </span>
-                <div className="flex flex-wrap gap-1">
-                  {(
-                    [
-                      { id: 'pairwise_matrix', label: '1vs1 Matrix' },
-                      { id: 'instance_algorithm', label: 'Instance × Algo' },
-                      { id: 'omnibus_posthoc', label: 'Friedman / Post-Hoc' },
-                    ] as { id: TableType; label: string }[]
-                  ).map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setActiveTableType(t.id)}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                        activeTableType === t.id
-                          ? 'bg-primary text-primary-foreground shadow-xs'
-                          : 'bg-card text-muted-foreground hover:text-foreground border border-border/60 hover:bg-muted/40'
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Document Mode */}
-              <div className="space-y-1.5">
-                <span className="font-semibold text-muted-foreground block text-[11px] uppercase tracking-wider">
-                  Document Mode
-                </span>
-                <div className="flex flex-wrap gap-1">
-                  {(
-                    [
-                      {
-                        id: 'standalone',
-                        label: 'Standalone (.tex)',
-                        title:
-                          'Ready to compile in Overleaf/TeXShop with \\documentclass and packages',
-                      },
-                      {
-                        id: 'snippet',
-                        label: 'Paper Snippet',
-                        title: 'Table environment snippet for inclusion in existing papers',
-                      },
-                    ] as { id: LatexDocumentMode; label: string; title: string }[]
-                  ).map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      title={m.title}
-                      onClick={() => setLatexDocumentMode(m.id)}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                        latexDocumentMode === m.id
-                          ? 'bg-primary text-primary-foreground shadow-xs'
-                          : 'bg-card text-muted-foreground hover:text-foreground border border-border/60 hover:bg-muted/40'
-                      }`}
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Notation Style */}
-              <div className="space-y-1.5">
-                <span className="font-semibold text-muted-foreground block text-[11px] uppercase tracking-wider">
-                  Number Notation
-                </span>
-                <div className="flex flex-wrap gap-1">
-                  {(
-                    [
-                      {
-                        id: 'scientific',
-                        label: 'Scientific ($e$)',
-                        title: 'Scientific notation with subscript SD: $2.55\\text{e-}02_{...}$',
-                      },
-                      {
-                        id: 'siunitx',
-                        label: 'siunitx (\\SI)',
-                        title: 'LaTeX siunitx package format: \\SI{2.55e-2}{}',
-                      },
-                      {
-                        id: 'standard',
-                        label: 'Decimal ($\\pm$)',
-                        title: 'Standard decimal format: $0.0255 \\pm 0.0033$',
-                      },
-                    ] as { id: LatexNotation; label: string; title: string }[]
-                  ).map((n) => (
-                    <button
-                      key={n.id}
-                      type="button"
-                      title={n.title}
-                      onClick={() => setLatexNotation(n.id)}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                        latexNotation === n.id
-                          ? 'bg-primary text-primary-foreground shadow-xs'
-                          : 'bg-card text-muted-foreground hover:text-foreground border border-border/60 hover:bg-muted/40'
-                      }`}
-                    >
-                      {n.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Direct Quick Actions Toolbar */}
-            <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-border/50 shrink-0">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isExporting !== null}
-                onClick={() => handleExport('latex')}
-                className="h-8.5 px-3 text-xs gap-1.5 font-semibold cursor-pointer"
-                title="Download .tex source file directly"
-              >
-                {isExporting === 'latex' ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Download className="w-3.5 h-3.5 text-primary" />
-                )}
-                Export .tex
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={isExporting !== null}
-                onClick={() => handleExport('pdf')}
-                className="h-8.5 px-3 text-xs gap-1.5 font-semibold cursor-pointer"
-                title="Export publication vector PDF directly"
-              >
-                {isExporting === 'pdf' ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <FileText className="w-3.5 h-3.5 text-primary" />
-                )}
-                Export PDF
-              </Button>
-
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  setExportModalTab('pdf')
-                  setIsExportDialogOpen(true)
-                }}
-                className="h-8.5 px-3 text-xs gap-1.5 font-semibold cursor-pointer"
-                title="Open Publication Studio to customize styles, themes and vector PDF"
-              >
-                <Palette className="w-3.5 h-3.5 text-primary" />
-                PDF Studio
-              </Button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* LaTeX Source */}
-            <div className="rounded-2xl border border-border/80 bg-card overflow-hidden flex flex-col">
-              <div className="px-4 py-3 border-b border-border/60 bg-muted/40 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-bold font-mono flex items-center gap-1.5">
-                  <FileCode className="w-4 h-4 text-primary" />
-                  LaTeX Publication Source ({activeTableType})
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCopyCode('latex')}
-                    className="h-7 px-2.5 text-xs gap-1 cursor-pointer"
-                  >
-                    {copiedCode === 'latex' ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-500" />
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        Copy LaTeX
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={isExporting !== null}
-                    onClick={() => handleExport('latex')}
-                    className="h-7 px-2.5 text-xs gap-1 cursor-pointer"
-                    title="Download .tex file"
-                  >
-                    {isExporting === 'latex' ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Download className="w-3 h-3 text-primary" />
-                    )}
-                    .tex
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={isExporting !== null}
-                    onClick={() => handleExport('pdf')}
-                    className="h-7 px-2.5 text-xs gap-1 cursor-pointer"
-                    title="Export publication PDF"
-                  >
-                    {isExporting === 'pdf' ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <FileText className="w-3 h-3 text-primary" />
-                    )}
-                    PDF
-                  </Button>
-                </div>
-              </div>
-              <pre className="p-4 text-[11px] font-mono overflow-x-auto bg-zinc-950 text-zinc-100 flex-1 leading-relaxed">
-                {tableData.latex_preview}
-              </pre>
-            </div>
-
-            {/* Markdown Source */}
-            <div className="rounded-2xl border border-border/80 bg-card overflow-hidden flex flex-col">
-              <div className="px-4 py-3 border-b border-border/60 bg-muted/40 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-xs font-bold font-mono flex items-center gap-1.5">
-                  <Code2 className="w-4 h-4 text-sky-500" />
-                  Markdown Benchmark Table
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleCopyCode('markdown')}
-                    className="h-7 px-2.5 text-xs gap-1 cursor-pointer"
-                  >
-                    {copiedCode === 'markdown' ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-500" />
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        Copy Markdown
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={isExporting !== null}
-                    onClick={() => handleExport('markdown')}
-                    className="h-7 px-2.5 text-xs gap-1 cursor-pointer"
-                    title="Download .md file"
-                  >
-                    {isExporting === 'markdown' ? (
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Download className="w-3 h-3 text-sky-500" />
-                    )}
-                    .md
-                  </Button>
-                </div>
-              </div>
-              <pre className="p-4 text-[11px] font-mono overflow-x-auto bg-zinc-950 text-zinc-100 flex-1 leading-relaxed">
-                {tableData.markdown_preview}
-              </pre>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =====================================================================
           MODAL 1: INTERACTIVE CELL DRILL-DOWN INSPECTOR (Instance × Algorithm)
          ===================================================================== */}
       <Dialog open={!!inspectedCell} onOpenChange={(o) => !o && setInspectedCell(null)}>
@@ -2594,8 +2261,16 @@ export const StatsTable: React.FC<StatsTableProps> = ({
           DIALOG 4: PUBLICATION TABLE EXPORT & STYLE STUDIO
       ======================================================================== */}
       <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
-        <DialogContent className="max-w-5xl max-h-[92vh] flex flex-col p-6 overflow-hidden">
-          <DialogHeader className="pb-3 border-b border-border/60">
+        <DialogContent
+          className={`w-full max-h-[92vh] flex flex-col p-6 overflow-hidden transition-all duration-200 ${
+            exportModalTab === 'pdf'
+              ? pdfPreviewExpanded
+                ? 'max-w-7xl w-[96vw]'
+                : 'max-w-6xl w-[95vw]'
+              : 'max-w-3xl w-full'
+          }`}
+        >
+          <DialogHeader className="pb-3 border-b border-border/60 shrink-0">
             <DialogTitle className="text-base font-bold flex items-center gap-2">
               <Download className="w-4 h-4 text-primary" />
               Export Statistical Benchmark Table
@@ -2608,7 +2283,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
           </DialogHeader>
 
           {/* Modal Tab Switcher */}
-          <div className="flex flex-wrap items-center gap-2 pt-1 border-b border-border/50 pb-2.5">
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-b border-border/50 pb-2.5 shrink-0">
             <button
               type="button"
               onClick={() => setExportModalTab('pdf')}
@@ -2640,249 +2315,255 @@ export const StatsTable: React.FC<StatsTableProps> = ({
             {exportModalTab === 'pdf' ? (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 text-xs">
                 {/* Left Column: Style & Document Settings */}
-                <div className="lg:col-span-6 space-y-4">
-                  {/* 1. Document Identity */}
-                  <div className="space-y-3 p-3.5 rounded-xl border border-border/70 bg-muted/20">
-                    <div className="font-bold text-foreground text-xs flex items-center gap-1.5">
-                      <Type className="w-3.5 h-3.5 text-primary" />
-                      <span>Document Header &amp; Caption</span>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                        Table Title
-                      </label>
-                      <input
-                        type="text"
-                        value={pdfTitle}
-                        onChange={(e) => setPdfTitle(e.target.value)}
-                        placeholder={`SAES Benchmark Table — ${activeMetric}`}
-                        className="h-8.5 w-full rounded-lg border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                        Caption / Footnote Notes
-                      </label>
-                      <input
-                        type="text"
-                        value={pdfCaption}
-                        onChange={(e) => setPdfCaption(e.target.value)}
-                        placeholder="Statistical significance caption..."
-                        className="h-8.5 w-full rounded-lg border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
-                    </div>
-                  </div>
-
-                  {/* 2. Color Themes with Clean Swatch Preview */}
-                  <div className="space-y-2 p-3.5 rounded-xl border border-border/70 bg-muted/20">
-                    <div className="font-bold text-foreground text-xs flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Palette className="w-3.5 h-3.5 text-primary" />
-                        Table Theme &amp; Journal Palette
-                      </span>
-                      <span className="text-[10px] font-normal text-muted-foreground">
-                        5 publication palettes
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                      {PDF_THEME_OPTIONS.map((th) => {
-                        const isSelected = pdfTheme === th.id
-                        return (
-                          <button
-                            key={th.id}
-                            type="button"
-                            onClick={() => setPdfTheme(th.id)}
-                            className={`rounded-xl border text-left p-2.5 transition-all cursor-pointer overflow-hidden ${
-                              isSelected
-                                ? 'border-primary ring-1 ring-primary/40 bg-primary/5 shadow-2xs'
-                                : 'border-border/70 bg-card hover:bg-muted/40 hover:border-border'
-                            }`}
-                          >
-                            {/* Rectangular Palette Color Bar */}
-                            <div className="h-2 rounded -mx-1 -mt-1 mb-2 flex overflow-hidden">
-                              <div
-                                className="h-full flex-[3]"
-                                style={{ backgroundColor: th.headerBg }}
-                              />
-                              <div
-                                className="h-full flex-[1]"
-                                style={{ backgroundColor: th.accentBg }}
-                              />
-                            </div>
-                            <div className="font-bold text-xs text-foreground flex items-center justify-between gap-1">
-                              <span className="truncate">{th.name}</span>
-                              {isSelected && (
-                                <Check className="w-3.5 h-3.5 text-primary shrink-0" />
-                              )}
-                            </div>
-                            <div className="text-[11px] text-muted-foreground leading-snug mt-1 break-words">
-                              {th.description}
-                            </div>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-
-                  {/* 3. Layout, Orientation & Density */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Orientation */}
-                    <div className="p-3.5 rounded-xl border border-border/70 bg-muted/20 space-y-2">
-                      <div className="font-bold text-foreground text-xs flex items-center gap-1.5">
-                        <Layout className="w-3.5 h-3.5 text-primary" />
-                        Page Orientation
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 pt-1">
-                        <button
-                          type="button"
-                          onClick={() => setPdfOrientation('landscape')}
-                          className={`px-3 py-2 rounded-lg border text-center transition-all cursor-pointer ${
-                            pdfOrientation === 'landscape'
-                              ? 'bg-primary text-primary-foreground border-primary font-semibold shadow-xs'
-                              : 'bg-card border-border/70 text-muted-foreground hover:text-foreground'
-                          }`}
-                        >
-                          <div className="text-xs font-bold">Landscape</div>
-                          <div className="text-[10px] opacity-80 mt-0.5">Wide tables</div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setPdfOrientation('portrait')}
-                          className={`px-3 py-2 rounded-lg border text-center transition-all cursor-pointer ${
-                            pdfOrientation === 'portrait'
-                              ? 'bg-primary text-primary-foreground border-primary font-semibold shadow-xs'
-                              : 'bg-card border-border/70 text-muted-foreground hover:text-foreground'
-                          }`}
-                        >
-                          <div className="text-xs font-bold">Portrait</div>
-                          <div className="text-[10px] opacity-80 mt-0.5">Tall tables</div>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Font Size & Density */}
-                    <div className="p-3.5 rounded-xl border border-border/70 bg-muted/20 space-y-2">
+                {!pdfPreviewExpanded && (
+                  <div className="lg:col-span-4 xl:col-span-4 space-y-4 pr-1">
+                    {/* 1. Document Identity */}
+                    <div className="space-y-3 p-3.5 rounded-xl border border-border/70 bg-muted/20">
                       <div className="font-bold text-foreground text-xs flex items-center gap-1.5">
                         <Type className="w-3.5 h-3.5 text-primary" />
-                        Typography &amp; Scale
+                        <span>Document Header &amp; Caption</span>
                       </div>
-                      <div className="grid grid-cols-3 gap-1.5 pt-1">
-                        {[
-                          { size: 7.0, label: 'Compact', desc: '7.0 pt' },
-                          { size: 8.5, label: 'Standard', desc: '8.5 pt' },
-                          { size: 10.0, label: 'Large', desc: '10.0 pt' },
-                        ].map((s) => (
+
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Table Title
+                        </label>
+                        <input
+                          type="text"
+                          value={pdfTitle}
+                          onChange={(e) => setPdfTitle(e.target.value)}
+                          placeholder={`SAES Benchmark Table — ${activeMetric}`}
+                          className="h-8.5 w-full rounded-lg border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Caption / Footnote Notes
+                        </label>
+                        <input
+                          type="text"
+                          value={pdfCaption}
+                          onChange={(e) => setPdfCaption(e.target.value)}
+                          placeholder="Statistical significance caption..."
+                          className="h-8.5 w-full rounded-lg border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+
+                    {/* 2. Color Themes with Clean Swatch Preview */}
+                    <div className="space-y-2 p-3.5 rounded-xl border border-border/70 bg-muted/20">
+                      <div className="font-bold text-foreground text-xs flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <Palette className="w-3.5 h-3.5 text-primary" />
+                          Table Theme &amp; Journal Palette
+                        </span>
+                        <span className="text-[10px] font-normal text-muted-foreground">
+                          5 publication palettes
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        {PDF_THEME_OPTIONS.map((th) => {
+                          const isSelected = pdfTheme === th.id
+                          return (
+                            <button
+                              key={th.id}
+                              type="button"
+                              onClick={() => setPdfTheme(th.id)}
+                              className={`rounded-xl border text-left p-2.5 transition-all cursor-pointer overflow-hidden ${
+                                isSelected
+                                  ? 'border-primary ring-1 ring-primary/40 bg-primary/5 shadow-2xs'
+                                  : 'border-border/70 bg-card hover:bg-muted/40 hover:border-border'
+                              }`}
+                            >
+                              {/* Rectangular Palette Color Bar */}
+                              <div className="h-2 rounded -mx-1 -mt-1 mb-2 flex overflow-hidden">
+                                <div
+                                  className="h-full flex-[3]"
+                                  style={{ backgroundColor: th.headerBg }}
+                                />
+                                <div
+                                  className="h-full flex-[1]"
+                                  style={{ backgroundColor: th.accentBg }}
+                                />
+                              </div>
+                              <div className="font-bold text-xs text-foreground flex items-center justify-between gap-1">
+                                <span className="truncate">{th.name}</span>
+                                {isSelected && (
+                                  <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+                                )}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground leading-snug mt-1 break-words">
+                                {th.description}
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 3. Layout, Orientation & Density */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Orientation */}
+                      <div className="p-3.5 rounded-xl border border-border/70 bg-muted/20 space-y-2">
+                        <div className="font-bold text-foreground text-xs flex items-center gap-1.5">
+                          <Layout className="w-3.5 h-3.5 text-primary" />
+                          Page Orientation
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 pt-1">
                           <button
-                            key={s.size}
                             type="button"
-                            onClick={() => setPdfFontSize(s.size)}
-                            className={`px-1.5 py-2 rounded-lg border text-center transition-all cursor-pointer overflow-hidden ${
-                              pdfFontSize === s.size
+                            onClick={() => setPdfOrientation('landscape')}
+                            className={`px-3 py-2 rounded-lg border text-center transition-all cursor-pointer ${
+                              pdfOrientation === 'landscape'
                                 ? 'bg-primary text-primary-foreground border-primary font-semibold shadow-xs'
                                 : 'bg-card border-border/70 text-muted-foreground hover:text-foreground'
                             }`}
                           >
-                            <div className="text-xs font-bold truncate">{s.label}</div>
-                            <div className="text-[10px] opacity-80 mt-0.5 truncate">{s.desc}</div>
+                            <div className="text-xs font-bold">Landscape</div>
+                            <div className="text-[10px] opacity-80 mt-0.5">Wide tables</div>
                           </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* 4. Table Elements & Presentation Options */}
-                  <div className="p-3.5 rounded-xl border border-border/70 bg-muted/20 space-y-3">
-                    <div className="font-bold text-foreground text-xs">
-                      Table Rules &amp; Accents
-                    </div>
-
-                    {/* Feature Toggles (2 columns with plenty of width so text never clips) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      <button
-                        type="button"
-                        onClick={() => setPdfHighlightBest(!pdfHighlightBest)}
-                        className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
-                          pdfHighlightBest
-                            ? 'border-primary/50 bg-primary/10 text-primary font-semibold'
-                            : 'border-border/70 bg-card text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        <div className="text-xs font-medium">Highlight Winners</div>
-                        {pdfHighlightBest && (
-                          <Check className="w-3.5 h-3.5 text-primary shrink-0" />
-                        )}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setPdfShowZebra(!pdfShowZebra)}
-                        className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
-                          pdfShowZebra
-                            ? 'border-primary/50 bg-primary/10 text-primary font-semibold'
-                            : 'border-border/70 bg-card text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        <div className="text-xs font-medium">Zebra Striping</div>
-                        {pdfShowZebra && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
-                      </button>
-                    </div>
-
-                    {/* Grid Border Style (Dedicated segmented control with generous space for Booktabs) */}
-                    <div className="space-y-1.5 pt-1">
-                      <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
-                        Grid Border Style
-                      </label>
-                      <div className="grid grid-cols-3 gap-1.5 bg-card border border-border/70 rounded-lg p-1">
-                        {(
-                          [
-                            { id: 'full', label: 'Grid' },
-                            { id: 'horizontal', label: 'Booktabs' },
-                            { id: 'minimal', label: 'Minimal' },
-                          ] as { id: PdfGridStyle; label: string }[]
-                        ).map((g) => (
                           <button
-                            key={g.id}
                             type="button"
-                            onClick={() => setPdfGridStyle(g.id)}
-                            className={`py-1.5 px-2 text-center rounded-md text-xs font-semibold transition-all cursor-pointer ${
-                              pdfGridStyle === g.id
-                                ? 'bg-primary text-primary-foreground shadow-2xs font-bold'
-                                : 'text-muted-foreground hover:text-foreground'
+                            onClick={() => setPdfOrientation('portrait')}
+                            className={`px-3 py-2 rounded-lg border text-center transition-all cursor-pointer ${
+                              pdfOrientation === 'portrait'
+                                ? 'bg-primary text-primary-foreground border-primary font-semibold shadow-xs'
+                                : 'bg-card border-border/70 text-muted-foreground hover:text-foreground'
                             }`}
                           >
-                            {g.label}
+                            <div className="text-xs font-bold">Portrait</div>
+                            <div className="text-[10px] opacity-80 mt-0.5">Tall tables</div>
                           </button>
-                        ))}
+                        </div>
+                      </div>
+
+                      {/* Font Size & Density */}
+                      <div className="p-3.5 rounded-xl border border-border/70 bg-muted/20 space-y-2">
+                        <div className="font-bold text-foreground text-xs flex items-center gap-1.5">
+                          <Type className="w-3.5 h-3.5 text-primary" />
+                          Typography &amp; Scale
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5 pt-1">
+                          {[
+                            { size: 7.0, label: 'Compact', desc: '7.0 pt' },
+                            { size: 8.5, label: 'Standard', desc: '8.5 pt' },
+                            { size: 10.0, label: 'Large', desc: '10.0 pt' },
+                          ].map((s) => (
+                            <button
+                              key={s.size}
+                              type="button"
+                              onClick={() => setPdfFontSize(s.size)}
+                              className={`px-1.5 py-2 rounded-lg border text-center transition-all cursor-pointer overflow-hidden ${
+                                pdfFontSize === s.size
+                                  ? 'bg-primary text-primary-foreground border-primary font-semibold shadow-xs'
+                                  : 'bg-card border-border/70 text-muted-foreground hover:text-foreground'
+                              }`}
+                            >
+                              <div className="text-xs font-bold truncate">{s.label}</div>
+                              <div className="text-[10px] opacity-80 mt-0.5 truncate">{s.desc}</div>
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Primary Download Button for Styled PDF */}
-                  <div className="pt-2">
-                    <Button
-                      type="button"
-                      disabled={isExporting !== null}
-                      onClick={() => handleExport('pdf')}
-                      className="w-full h-11 text-xs sm:text-sm font-bold gap-2 shadow-xs cursor-pointer"
-                    >
-                      {isExporting === 'pdf' ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Download className="w-4 h-4" />
-                      )}
-                      Download Publication PDF (.pdf)
-                    </Button>
+                    {/* 4. Table Elements & Presentation Options */}
+                    <div className="p-3.5 rounded-xl border border-border/70 bg-muted/20 space-y-3">
+                      <div className="font-bold text-foreground text-xs">
+                        Table Rules &amp; Accents
+                      </div>
+
+                      {/* Feature Toggles (2 columns with plenty of width so text never clips) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setPdfHighlightBest(!pdfHighlightBest)}
+                          className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                            pdfHighlightBest
+                              ? 'border-primary/50 bg-primary/10 text-primary font-semibold'
+                              : 'border-border/70 bg-card text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          <div className="text-xs font-medium">Highlight Winners</div>
+                          {pdfHighlightBest && (
+                            <Check className="w-3.5 h-3.5 text-primary shrink-0" />
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setPdfShowZebra(!pdfShowZebra)}
+                          className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                            pdfShowZebra
+                              ? 'border-primary/50 bg-primary/10 text-primary font-semibold'
+                              : 'border-border/70 bg-card text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          <div className="text-xs font-medium">Zebra Striping</div>
+                          {pdfShowZebra && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
+                        </button>
+                      </div>
+
+                      {/* Grid Border Style (Dedicated segmented control with generous space for Booktabs) */}
+                      <div className="space-y-1.5 pt-1">
+                        <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block">
+                          Grid Border Style
+                        </label>
+                        <div className="grid grid-cols-3 gap-1.5 bg-card border border-border/70 rounded-lg p-1">
+                          {(
+                            [
+                              { id: 'full', label: 'Grid' },
+                              { id: 'horizontal', label: 'Booktabs' },
+                              { id: 'minimal', label: 'Minimal' },
+                            ] as { id: PdfGridStyle; label: string }[]
+                          ).map((g) => (
+                            <button
+                              key={g.id}
+                              type="button"
+                              onClick={() => setPdfGridStyle(g.id)}
+                              className={`py-1.5 px-2 text-center rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                                pdfGridStyle === g.id
+                                  ? 'bg-primary text-primary-foreground shadow-2xs font-bold'
+                                  : 'text-muted-foreground hover:text-foreground'
+                              }`}
+                            >
+                              {g.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Primary Download Button for Styled PDF */}
+                    <div className="pt-2">
+                      <Button
+                        type="button"
+                        disabled={isExporting !== null}
+                        onClick={() => handleExport('pdf')}
+                        className="w-full h-11 text-xs sm:text-sm font-bold gap-2 shadow-xs cursor-pointer"
+                      >
+                        {isExporting === 'pdf' ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4" />
+                        )}
+                        Download Publication PDF (.pdf)
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Right Column: Live Table & PDF Document Preview */}
-                <div className="lg:col-span-6 space-y-3 flex flex-col">
+                <div
+                  className={`${
+                    pdfPreviewExpanded ? 'col-span-12' : 'lg:col-span-8 xl:col-span-8'
+                  } space-y-3 flex flex-col`}
+                >
                   {/* Preview Navigation Header */}
-                  <div className="flex items-center justify-between pb-0.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-0.5">
                     <div className="font-bold text-foreground text-xs flex items-center gap-1.5">
                       <Eye className="w-3.5 h-3.5 text-primary" />
                       <span>Document Preview</span>
@@ -2905,35 +2586,93 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/60 text-xs">
-                      <button
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-border/60 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setPdfPreviewTab('visual')}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                            pdfPreviewTab === 'visual'
+                              ? 'bg-background text-foreground shadow-2xs'
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          Live Interactive
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPdfPreviewTab('vector')}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                            pdfPreviewTab === 'vector'
+                              ? 'bg-background text-foreground shadow-2xs'
+                              : 'text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          Vector PDF
+                        </button>
+                      </div>
+
+                      {/* Open in New Tab Button */}
+                      {pdfPreviewBlobUrl && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(pdfPreviewBlobUrl, '_blank')}
+                          title="Open PDF in full browser window"
+                          className="text-xs h-7 px-2.5 gap-1.5 cursor-pointer"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span className="hidden sm:inline">Open in Tab</span>
+                        </Button>
+                      )}
+
+                      {/* Expand / Full Width Toggle Button */}
+                      <Button
                         type="button"
-                        onClick={() => setPdfPreviewTab('visual')}
-                        className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
-                          pdfPreviewTab === 'visual'
-                            ? 'bg-background text-foreground shadow-2xs'
-                            : 'text-muted-foreground hover:text-foreground'
-                        }`}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPdfPreviewExpanded(!pdfPreviewExpanded)}
+                        title={
+                          pdfPreviewExpanded
+                            ? 'Restore split sidebar view'
+                            : 'Expand preview to full dialog width'
+                        }
+                        className="text-xs h-7 px-2.5 gap-1.5 cursor-pointer"
                       >
-                        Live Interactive
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPdfPreviewTab('vector')}
-                        className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
-                          pdfPreviewTab === 'vector'
-                            ? 'bg-background text-foreground shadow-2xs'
-                            : 'text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        Vector PDF
-                      </button>
+                        {pdfPreviewExpanded ? (
+                          <>
+                            <Minimize2 className="w-3 h-3" />
+                            <span>Split View</span>
+                          </>
+                        ) : (
+                          <>
+                            <Maximize2 className="w-3 h-3" />
+                            <span>Full Width</span>
+                          </>
+                        )}
+                      </Button>
+
+                      {/* Quick Download in Full Width mode */}
+                      {pdfPreviewExpanded && (
+                        <Button
+                          type="button"
+                          variant="default"
+                          size="sm"
+                          disabled={isExporting !== null}
+                          onClick={() => handleExport('pdf')}
+                          className="text-xs h-7 px-2.5 gap-1.5 cursor-pointer"
+                        >
+                          <Download className="w-3 h-3" />
+                          <span>Download PDF</span>
+                        </Button>
+                      )}
                     </div>
                   </div>
 
                   {/* Preview Display Box */}
                   {pdfPreviewTab === 'visual' ? (
-                    <div className="rounded-xl border border-border/80 bg-white dark:bg-zinc-950 p-4 shadow-inner space-y-3 flex-1 flex flex-col justify-between min-h-[380px] max-h-[500px] overflow-auto">
+                    <div className="rounded-xl border border-border/80 bg-white dark:bg-zinc-950 p-4 shadow-xs space-y-3 flex flex-col">
                       <div className="space-y-3">
                         {/* Title Header */}
                         <div>
@@ -2953,7 +2692,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
 
                         {/* Interactive Styled Table Mockup */}
                         {tableData ? (
-                          <div className="overflow-x-auto">
+                          <div className="overflow-x-auto max-h-[380px] overflow-y-auto rounded-lg border border-border/40">
                             {(() => {
                               const activePalette =
                                 PDF_THEME_OPTIONS.find((t) => t.id === pdfTheme) ||
@@ -2969,33 +2708,28 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                                   }`}
                                   style={{ fontSize: `${Math.max(10, pdfFontSize + 0.5)}px` }}
                                 >
-                                  <thead>
+                                  <thead className="sticky top-0 z-10">
                                     <tr
                                       style={{
                                         backgroundColor: activePalette.headerBg,
                                         color: '#ffffff',
                                       }}
                                     >
-                                      <th className="py-1.5 px-2 font-bold text-[11px]">
+                                      <th className="py-1.5 px-2 font-bold text-[11px] whitespace-nowrap">
                                         Benchmark Instance
                                       </th>
-                                      {tableData.algorithms.slice(0, 4).map((alg) => (
+                                      {tableData.algorithms.map((alg) => (
                                         <th
                                           key={alg}
-                                          className="py-1.5 px-2 text-center font-bold text-[11px]"
+                                          className="py-1.5 px-2 text-center font-bold text-[11px] whitespace-nowrap"
                                         >
                                           {alg}
                                         </th>
                                       ))}
-                                      {tableData.algorithms.length > 4 && (
-                                        <th className="py-1.5 px-1.5 text-center text-[10px] opacity-80">
-                                          +{tableData.algorithms.length - 4} more
-                                        </th>
-                                      )}
                                     </tr>
                                   </thead>
                                   <tbody>
-                                    {tableData.instance_rows.slice(0, 5).map((row, rowIdx) => {
+                                    {tableData.instance_rows.map((row, rowIdx) => {
                                       const inst = row.instance
                                       const isZebra = pdfShowZebra && rowIdx % 2 === 1
                                       return (
@@ -3014,16 +2748,16 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                                               : 'transparent',
                                           }}
                                         >
-                                          <td className="py-1 px-2 font-semibold text-zinc-900 dark:text-zinc-100 text-[11px]">
+                                          <td className="py-1 px-2 font-semibold text-zinc-900 dark:text-zinc-100 text-[11px] whitespace-nowrap">
                                             {inst}
                                           </td>
-                                          {tableData.algorithms.slice(0, 4).map((alg) => {
+                                          {tableData.algorithms.map((alg) => {
                                             const cell = row?.cells?.[alg]
                                             const isBest = pdfHighlightBest && cell?.is_best
                                             return (
                                               <td
                                                 key={alg}
-                                                className="py-1 px-2 text-center text-zinc-800 dark:text-zinc-200 text-[10px]"
+                                                className="py-1 px-2 text-center text-zinc-800 dark:text-zinc-200 text-[10px] whitespace-nowrap"
                                                 style={
                                                   isBest
                                                     ? {
@@ -3038,15 +2772,57 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                                               </td>
                                             )
                                           })}
-                                          {tableData.algorithms.length > 4 && (
-                                            <td className="py-1 px-1.5 text-center text-zinc-400 text-[10px]">
-                                              ...
-                                            </td>
-                                          )}
                                         </tr>
                                       )
                                     })}
                                   </tbody>
+                                  {tableData.algorithm_summaries &&
+                                    tableData.algorithm_summaries.length > 0 && (
+                                      <tfoot className="border-t-2 border-zinc-300 dark:border-zinc-700 font-semibold bg-muted/20">
+                                        <tr className="border-b border-zinc-200/60 dark:border-zinc-800/60">
+                                          <td className="py-1 px-2 font-bold text-[11px] text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+                                            Avg Rank
+                                          </td>
+                                          {tableData.algorithms.map((alg) => {
+                                            const s = summaryMap[alg]
+                                            return (
+                                              <td
+                                                key={alg}
+                                                className="py-1 px-2 text-center text-zinc-800 dark:text-zinc-200 text-[10px] whitespace-nowrap font-bold"
+                                              >
+                                                {s ? s.avg_rank.toFixed(2) : '—'}
+                                              </td>
+                                            )
+                                          })}
+                                        </tr>
+                                        <tr>
+                                          <td className="py-1 px-2 font-bold text-[11px] text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+                                            + / ≈ / −
+                                          </td>
+                                          {tableData.algorithms.map((alg) => {
+                                            const s = summaryMap[alg]
+                                            if (alg === tableData.reference_algorithm) {
+                                              return (
+                                                <td
+                                                  key={alg}
+                                                  className="py-1 px-2 text-center text-[10px] text-primary whitespace-nowrap font-semibold"
+                                                >
+                                                  Ref
+                                                </td>
+                                              )
+                                            }
+                                            return (
+                                              <td
+                                                key={alg}
+                                                className="py-1 px-2 text-center text-[10px] whitespace-nowrap"
+                                              >
+                                                {s ? `${s.wins}/${s.ties}/${s.losses}` : '—'}
+                                              </td>
+                                            )
+                                          })}
+                                        </tr>
+                                      </tfoot>
+                                    )}
                                 </table>
                               )
                             })()}
@@ -3066,7 +2842,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                       </div>
 
                       {/* Footer Actions */}
-                      <div className="pt-3 flex justify-end">
+                      <div className="pt-2 border-t border-zinc-100 dark:border-zinc-850 flex justify-end">
                         <Button
                           type="button"
                           variant="outline"
@@ -3086,17 +2862,23 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                     </div>
                   ) : (
                     /* Vector PDF Tab */
-                    <div className="rounded-xl border border-border/80 bg-card p-2 flex-1 flex flex-col min-h-[380px] max-h-[500px] relative">
+                    <div className="rounded-xl border border-border/80 bg-card p-3 flex flex-col space-y-2 relative">
                       {isPreviewLoading && !pdfPreviewBlobUrl ? (
-                        <div className="flex-1 flex flex-col items-center justify-center gap-2 p-8 text-center">
+                        <div className="h-[460px] flex flex-col items-center justify-center gap-2 p-8 text-center">
                           <Loader2 className="w-6 h-6 animate-spin text-primary" />
                           <p className="text-xs text-muted-foreground">
                             Rendering high-resolution vector PDF with ReportLab...
                           </p>
                         </div>
                       ) : pdfPreviewBlobUrl ? (
-                        <div className="flex-1 flex flex-col space-y-2 h-full">
-                          <div className="relative flex-1 min-h-[360px] rounded-lg overflow-hidden border border-border/60 bg-white">
+                        <div className="flex flex-col space-y-2">
+                          <div
+                            className={`relative ${
+                              pdfPreviewExpanded
+                                ? 'h-[calc(85vh-200px)] min-h-[500px]'
+                                : 'h-[460px]'
+                            } rounded-lg overflow-hidden border border-border/60 bg-white`}
+                          >
                             <iframe
                               src={pdfPreviewBlobUrl}
                               className="w-full h-full border-none"
@@ -3147,7 +2929,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                           </div>
                         </div>
                       ) : (
-                        <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center border border-dashed border-border/70 rounded-lg">
+                        <div className="h-[420px] flex flex-col items-center justify-center gap-3 p-8 text-center border border-dashed border-border/70 rounded-lg">
                           <Eye className="w-8 h-8 text-muted-foreground/60" />
                           <div>
                             <p className="text-xs font-semibold text-foreground">

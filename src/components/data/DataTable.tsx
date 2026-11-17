@@ -1129,7 +1129,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                   setPageSize(val)
                   table.setPageSize(val)
                 }}
-                className="h-8 rounded-lg border border-input bg-background px-2.5 text-xs"
+                className="h-8 rounded-lg border border-input bg-background pl-2.5 pr-7 text-xs"
               >
                 {[10, 15, 25, 50, 100].map((sz) => (
                   <option key={sz} value={sz}>

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fixed overlapping legend and X-axis title collision in Dolan-Moré Step Profile Curve $\rho(\tau)$ (`PerformanceProfilesWorkspace.tsx`) and Power Curves (`PowerAnalysisWorkspace.tsx`) by establishing top-anchored legend positioning (`yanchor: 'top'`), adding axis title standoff distance, dynamically expanding bottom margins and container height proportional to wrapped algorithm legend rows, preventing horizontal legends from encroaching onto the X-axis label.
+- Fixed dropdown chevron/arrow alignment in `SelectDropdown` and native select inputs across the UI by expanding right padding (`pr-3.5` / `pr-4`) and removing asymmetric text margins, preventing the caret line from appearing crammed against the right rounded border.
+- Fixed oversized and displaced `Evaluation Metric` dropdown in Statistical Workbench (`StatsTable.tsx`) by converting the primary controls row into a proportional 12-column layout (`xl:col-span-2` for metric), eliminating excessive whitespace separation between metric text and controls.
+
 ### Added
 - Three new specialized scientific workflow tabs in `VisualizeWorkspace` (`Performance Profiles`, `Power & Design`, `Reproducibility`):
   - `Performance Profiles`: Interactive Dolan-Moré (2002) step curves $\rho(\tau)$ with linear/log scale toggle, top solver (#1 Meta-Rank) hero showcase card, global meta-ranking summary with CSV export, pairwise Win/Tie/Loss (W/T/L) score matrix with CSV export, and high-resolution chart export (PNG 300 DPI, SVG Vector).

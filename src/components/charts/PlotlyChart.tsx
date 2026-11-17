@@ -70,6 +70,9 @@ export const PlotlyChart: React.FC<PlotlyChartProps> = ({
     }
 
     Plotly.react(el, data, defaultLayout, defaultConfig).then(() => {
+      if (containerRef.current && !hasExplicitDimensions && containerRef.current.clientWidth > 0) {
+        Plotly.Plots.resize(containerRef.current)
+      }
       if (el.removeAllListeners) {
         el.removeAllListeners('plotly_relayout')
       }
@@ -89,8 +92,28 @@ export const PlotlyChart: React.FC<PlotlyChartProps> = ({
     }
 
     window.addEventListener('resize', handleResize)
+
+    let resizeObserver: ResizeObserver | null = null
+    if (!hasExplicitDimensions && typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          if (entry.contentRect.width > 0 && containerRef.current) {
+            requestAnimationFrame(() => {
+              if (containerRef.current) {
+                Plotly.Plots.resize(containerRef.current)
+              }
+            })
+          }
+        }
+      })
+      resizeObserver.observe(el)
+    }
+
     return () => {
       window.removeEventListener('resize', handleResize)
+      if (resizeObserver) {
+        resizeObserver.disconnect()
+      }
     }
   }, [data, layout, config])
 

@@ -1417,7 +1417,6 @@ export const ChartWorkbench = ({
                   },
                 ]}
                 onChange={(val) => setRankingScope(val as RankingScope)}
-                triggerClassName="min-w-[165px]"
               />
             )}
 
@@ -1428,7 +1427,7 @@ export const ChartWorkbench = ({
                 value={activeInstance}
                 options={instances.map((inst) => ({ value: inst, label: inst }))}
                 onChange={setSelectedInstance}
-                triggerClassName="font-mono font-semibold min-w-[130px]"
+                triggerClassName="font-mono font-semibold"
               />
             )}
 
@@ -1453,7 +1452,7 @@ export const ChartWorkbench = ({
                 }
                 setSelectedMetric(val)
               }}
-              triggerClassName="font-mono font-semibold text-primary min-w-[140px]"
+              triggerClassName="font-mono font-semibold text-primary"
             />
 
             {/* Single Color Picker for Left / Primary Metric on Boxplot & Violin */}
@@ -1576,7 +1575,6 @@ export const ChartWorkbench = ({
                 value={legendPlacement}
                 options={LEGEND_PLACEMENTS}
                 onChange={(val) => setLegendPlacement(val as LegendPlacement)}
-                triggerClassName="min-w-[145px]"
               />
             )}
 
@@ -1587,7 +1585,6 @@ export const ChartWorkbench = ({
                 value={xTickAngle}
                 options={X_TICK_ANGLES}
                 onChange={setXTickAngle}
-                triggerClassName="min-w-[115px]"
               />
             )}
           </div>
@@ -1599,7 +1596,6 @@ export const ChartWorkbench = ({
               value={titleMode}
               options={TITLE_OPTIONS}
               onChange={(val) => setTitleMode(val as TitleMode)}
-              triggerClassName="min-w-[205px]"
               align="right"
             />
 
@@ -1645,7 +1641,6 @@ export const ChartWorkbench = ({
                       ]
               }
               onChange={(val) => setLabelMode(val as LabelMode)}
-              triggerClassName="min-w-[195px]"
               align="right"
             />
 
@@ -1654,7 +1649,6 @@ export const ChartWorkbench = ({
               value={boldMode}
               options={BOLD_OPTIONS}
               onChange={(val) => setBoldMode(val as BoldMode)}
-              triggerClassName="min-w-[195px]"
               align="right"
             />
 
@@ -1664,7 +1658,6 @@ export const ChartWorkbench = ({
               value={fontFamily}
               options={FONT_FAMILIES}
               onChange={setFontFamily}
-              triggerClassName="min-w-[165px]"
               align="right"
             />
 

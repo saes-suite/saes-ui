@@ -6,10 +6,12 @@ import {
   SampleSizeRecommendation,
 } from '../../api/types'
 import { apiClient } from '../../api/client'
+import { getPowerCacheKey, getCachedPower, setCachedPower } from '../../lib/workspaceCache'
 import { PlotlyChart } from '../charts/PlotlyChart'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
+import { SelectDropdown } from '../ui/select-dropdown'
 import { exportPlotlyImage, exportToCsv } from '../../lib/exportUtils'
 import {
   Activity,
@@ -48,9 +50,6 @@ export const PowerAnalysisWorkspace: React.FC<PowerAnalysisWorkspaceProps> = ({
   selectedDatasetFilename,
   rawCsv,
 }) => {
-  const [data, setData] = useState<PowerAnalysisResponse | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [activeSubTab, setActiveSubTab] = useState<PowerSubTab>('planning')
   const [targetPower, setTargetPower] = useState<number>(0.8)
   const [targetEffectSize, setTargetEffectSize] = useState<number>(0.5)
@@ -76,50 +75,80 @@ export const PowerAnalysisWorkspace: React.FC<PowerAnalysisWorkspaceProps> = ({
     return firstCell.length || 30
   }, [records])
 
-  const fetchData = useCallback(async () => {
-    if (!apiOnline) return
-    setLoading(true)
-    setError(null)
-    try {
-      let res: PowerAnalysisResponse
-      if (selectedDatasetFilename) {
-        res = await apiClient.getPowerAnalysisFromPath(selectedDatasetFilename, {
-          metric: targetMetric,
-          alpha,
-          target_power: targetPower,
-          target_effect_size: targetEffectSize,
-        })
-      } else if (rawCsv) {
-        res = await apiClient.getPowerAnalysisFromCsv(rawCsv, {
-          metric: targetMetric,
-          alpha,
-          target_power: targetPower,
-          target_effect_size: targetEffectSize,
-        })
-      } else {
-        setError('No dataset or observations available.')
-        return
+  const datasetId = selectedDatasetFilename || (rawCsv ? `csv-${rawCsv.length}` : 'default')
+  const cacheKey = useMemo(
+    () => getPowerCacheKey(datasetId, targetMetric, alpha, targetPower, targetEffectSize),
+    [datasetId, targetMetric, alpha, targetPower, targetEffectSize]
+  )
+
+  const [data, setData] = useState<PowerAnalysisResponse | null>(
+    () => getCachedPower(cacheKey) ?? null
+  )
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchData = useCallback(
+    async (forceRefresh = false) => {
+      if (!apiOnline) return
+      if (!forceRefresh) {
+        const cached = getCachedPower(cacheKey)
+        if (cached) {
+          setData(cached)
+          return
+        }
       }
-      setData(res)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to calculate statistical power'
-      setError(msg)
-    } finally {
-      setLoading(false)
-    }
-  }, [
-    apiOnline,
-    selectedDatasetFilename,
-    rawCsv,
-    targetMetric,
-    alpha,
-    targetPower,
-    targetEffectSize,
-  ])
+
+      setLoading(true)
+      setError(null)
+      try {
+        let res: PowerAnalysisResponse
+        if (selectedDatasetFilename) {
+          res = await apiClient.getPowerAnalysisFromPath(selectedDatasetFilename, {
+            metric: targetMetric,
+            alpha,
+            target_power: targetPower,
+            target_effect_size: targetEffectSize,
+          })
+        } else if (rawCsv) {
+          res = await apiClient.getPowerAnalysisFromCsv(rawCsv, {
+            metric: targetMetric,
+            alpha,
+            target_power: targetPower,
+            target_effect_size: targetEffectSize,
+          })
+        } else {
+          setError('No dataset or observations available.')
+          return
+        }
+        setCachedPower(cacheKey, res)
+        setData(res)
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to calculate statistical power'
+        setError(msg)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [
+      apiOnline,
+      cacheKey,
+      selectedDatasetFilename,
+      rawCsv,
+      targetMetric,
+      alpha,
+      targetPower,
+      targetEffectSize,
+    ]
+  )
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    const cached = getCachedPower(cacheKey)
+    if (cached) {
+      setData(cached)
+    } else {
+      fetchData()
+    }
+  }, [cacheKey, fetchData])
 
   // Plotly chart data for Power Curves
   const plotlyChartData = useMemo(() => {
@@ -152,7 +181,11 @@ export const PowerAnalysisWorkspace: React.FC<PowerAnalysisWorkspaceProps> = ({
         font: { family: 'Inter, sans-serif', size: 14, color: '#1e293b' },
       },
       xaxis: {
-        title: 'Sample Size per Cell (Repetitions / Runs N)',
+        title: {
+          text: 'Sample Size per Cell (Repetitions / Runs N)',
+          standoff: 12,
+          font: { family: 'Inter, sans-serif', size: 12, color: '#334155' },
+        },
         gridcolor: '#e2e8f0',
         dtick: 10,
       },
@@ -203,11 +236,13 @@ export const PowerAnalysisWorkspace: React.FC<PowerAnalysisWorkspaceProps> = ({
       ],
       legend: {
         orientation: 'h' as const,
-        y: -0.25,
         x: 0.5,
         xanchor: 'center' as const,
+        y: -0.26,
+        yanchor: 'top' as const,
+        font: { family: 'Inter, sans-serif', size: 11, color: '#334155' },
       },
-      margin: { l: 60, r: 30, t: 50, b: 80 },
+      margin: { l: 60, r: 30, t: 50, b: 105 },
     }
   }, [alpha, actualN])
 
@@ -349,20 +384,13 @@ export const PowerAnalysisWorkspace: React.FC<PowerAnalysisWorkspaceProps> = ({
           <div className="flex flex-wrap items-center gap-2">
             {/* Metric Selector */}
             {availableMetrics.length > 1 && (
-              <div className="flex items-center gap-1.5 text-xs">
-                <span className="text-muted-foreground font-medium">Metric:</span>
-                <select
-                  value={targetMetric}
-                  onChange={(e) => setSelectedMetric(e.target.value)}
-                  className="h-8 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-medium"
-                >
-                  {availableMetrics.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <SelectDropdown
+                label="Metric:"
+                value={targetMetric}
+                options={availableMetrics.map((m) => ({ value: m, label: m }))}
+                onChange={setSelectedMetric}
+                triggerClassName="h-8 font-mono font-medium"
+              />
             )}
 
             {/* Recalculate */}
@@ -370,7 +398,7 @@ export const PowerAnalysisWorkspace: React.FC<PowerAnalysisWorkspaceProps> = ({
               type="button"
               variant="outline"
               size="sm"
-              onClick={fetchData}
+              onClick={() => fetchData(true)}
               disabled={loading}
               className="h-8 gap-1.5 text-xs rounded-lg"
             >

@@ -5,10 +5,12 @@ import {
   GlobalMetaRankingItem,
 } from '../../api/types'
 import { apiClient } from '../../api/client'
+import { getProfilesCacheKey, getCachedProfiles, setCachedProfiles } from '../../lib/workspaceCache'
 import { PlotlyChart } from '../charts/PlotlyChart'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
+import { SelectDropdown } from '../ui/select-dropdown'
 import { exportPlotlyImage, exportToCsv } from '../../lib/exportUtils'
 import {
   TrendingUp,
@@ -55,9 +57,6 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
   selectedDatasetFilename,
   rawCsv,
 }) => {
-  const [data, setData] = useState<PerformanceProfilesResponse | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [activeSubTab, setActiveSubTab] = useState<ProfileSubTab>('curves')
   const [selectedMetric, setSelectedMetric] = useState<string | undefined>(undefined)
   const [isLogScale, setIsLogScale] = useState(false)
@@ -72,38 +71,67 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
 
   const targetMetric = selectedMetric || availableMetrics[0] || 'HV'
 
-  const fetchData = useCallback(async () => {
-    if (!apiOnline) return
-    setLoading(true)
-    setError(null)
-    try {
-      let res: PerformanceProfilesResponse
-      if (selectedDatasetFilename) {
-        res = await apiClient.getPerformanceProfilesFromPath(selectedDatasetFilename, {
-          metric: targetMetric,
-          alpha,
-        })
-      } else if (rawCsv) {
-        res = await apiClient.getPerformanceProfilesFromCsv(rawCsv, {
-          metric: targetMetric,
-          alpha,
-        })
-      } else {
-        setError('No dataset or observations available.')
-        return
+  const datasetId = selectedDatasetFilename || (rawCsv ? `csv-${rawCsv.length}` : 'default')
+  const cacheKey = useMemo(
+    () => getProfilesCacheKey(datasetId, targetMetric, alpha),
+    [datasetId, targetMetric, alpha]
+  )
+
+  const [data, setData] = useState<PerformanceProfilesResponse | null>(
+    () => getCachedProfiles(cacheKey) ?? null
+  )
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchData = useCallback(
+    async (forceRefresh = false) => {
+      if (!apiOnline) return
+      if (!forceRefresh) {
+        const cached = getCachedProfiles(cacheKey)
+        if (cached) {
+          setData(cached)
+          return
+        }
       }
-      setData(res)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to compute performance profiles'
-      setError(msg)
-    } finally {
-      setLoading(false)
-    }
-  }, [apiOnline, selectedDatasetFilename, rawCsv, targetMetric, alpha])
+
+      setLoading(true)
+      setError(null)
+      try {
+        let res: PerformanceProfilesResponse
+        if (selectedDatasetFilename) {
+          res = await apiClient.getPerformanceProfilesFromPath(selectedDatasetFilename, {
+            metric: targetMetric,
+            alpha,
+          })
+        } else if (rawCsv) {
+          res = await apiClient.getPerformanceProfilesFromCsv(rawCsv, {
+            metric: targetMetric,
+            alpha,
+          })
+        } else {
+          setError('No dataset or observations available.')
+          return
+        }
+        setCachedProfiles(cacheKey, res)
+        setData(res)
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to compute performance profiles'
+        setError(msg)
+      } finally {
+        setLoading(false)
+      }
+    },
+    [apiOnline, cacheKey, selectedDatasetFilename, rawCsv, targetMetric, alpha]
+  )
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    const cached = getCachedProfiles(cacheKey)
+    if (cached) {
+      setData(cached)
+    } else {
+      fetchData()
+    }
+  }, [cacheKey, fetchData])
 
   // Prepare Plotly chart data for Dolan-Moré step curves
   const plotlyChartData = useMemo(() => {
@@ -130,33 +158,55 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
     })
   }, [data])
 
-  const plotlyLayout = useMemo(() => {
+  const { plotlyLayout, chartHeight } = useMemo(() => {
+    const numCurves = data?.curves?.length || 0
+    // Estimate legend rows needed based on number of algorithm curves
+    const estimatedLegendRows = Math.max(1, Math.ceil((numCurves * 220) / 700))
+    // 80px clearance ensures ~35px of clean visual breathing room below the X-axis title
+    const clearancePx = 80
+    const legendHeight = estimatedLegendRows * 24
+    const bottomMargin = Math.max(110, clearancePx + legendHeight + 24)
+    const calculatedHeight = Math.max(520, 360 + bottomMargin)
+    const plotAreaHeight = Math.max(200, calculatedHeight - 50 - bottomMargin)
+    const yOffset = -(clearancePx / plotAreaHeight)
+
     return {
-      title: {
-        text: `Dolan-Moré Performance Profile: ${targetMetric} (${data?.maximize ? 'Higher is better' : 'Lower is better'})`,
-        font: { family: 'Inter, sans-serif', size: 14, color: '#1e293b' },
+      chartHeight: calculatedHeight,
+      plotlyLayout: {
+        autosize: true,
+        title: {
+          text: `Dolan-Moré Performance Profile: ${targetMetric} (${data?.maximize ? 'Higher is better' : 'Lower is better'})`,
+          font: { family: 'Inter, sans-serif', size: 14, color: '#1e293b' },
+        },
+        xaxis: {
+          title: {
+            text: 'Performance Factor (τ ≥ 1)',
+            standoff: 8,
+            font: { family: 'Inter, sans-serif', size: 12, color: '#334155' },
+          },
+          type: isLogScale ? ('log' as const) : ('linear' as const),
+          gridcolor: '#e2e8f0',
+          zeroline: false,
+          autorange: true,
+        },
+        yaxis: {
+          title: 'Fraction of Problems Solved ρ(τ)',
+          range: [0, 1.05] as [number, number],
+          gridcolor: '#e2e8f0',
+          tickformat: '.0%',
+        },
+        legend: {
+          orientation: 'h' as const,
+          x: 0.5,
+          xanchor: 'center' as const,
+          y: yOffset,
+          yanchor: 'top' as const,
+          font: { family: 'Inter, sans-serif', size: 11, color: '#334155' },
+        },
+        margin: { l: 60, r: 40, t: 50, b: bottomMargin },
       },
-      xaxis: {
-        title: 'Performance Factor (τ ≥ 1)',
-        type: isLogScale ? ('log' as const) : ('linear' as const),
-        gridcolor: '#e2e8f0',
-        zeroline: false,
-      },
-      yaxis: {
-        title: 'Fraction of Problems Solved ρ(τ)',
-        range: [0, 1.05] as [number, number],
-        gridcolor: '#e2e8f0',
-        tickformat: '.0%',
-      },
-      legend: {
-        orientation: 'h' as const,
-        y: -0.25,
-        x: 0.5,
-        xanchor: 'center' as const,
-      },
-      margin: { l: 60, r: 30, t: 50, b: 80 },
     }
-  }, [targetMetric, data?.maximize, isLogScale])
+  }, [targetMetric, data?.maximize, isLogScale, data?.curves?.length])
 
   const handleCopySummary = () => {
     if (!data || !data.meta_rankings) return
@@ -275,20 +325,13 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
           <div className="flex flex-wrap items-center gap-2">
             {/* Metric Selector */}
             {availableMetrics.length > 1 && (
-              <div className="flex items-center gap-1.5 text-xs">
-                <span className="text-muted-foreground font-medium">Metric:</span>
-                <select
-                  value={targetMetric}
-                  onChange={(e) => setSelectedMetric(e.target.value)}
-                  className="h-8 rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-medium"
-                >
-                  {availableMetrics.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <SelectDropdown
+                label="Metric:"
+                value={targetMetric}
+                options={availableMetrics.map((m) => ({ value: m, label: m }))}
+                onChange={setSelectedMetric}
+                triggerClassName="h-8 font-mono font-medium"
+              />
             )}
 
             {/* Copy Summary */}
@@ -313,7 +356,7 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
               type="button"
               variant="outline"
               size="sm"
-              onClick={fetchData}
+              onClick={() => fetchData(true)}
               disabled={loading}
               className="h-8 gap-1.5 text-xs rounded-lg"
             >
@@ -483,11 +526,12 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
                   </div>
                 </div>
 
-                <div className="w-full min-h-[440px]">
+                <div className="w-full" style={{ height: `${chartHeight}px` }}>
                   <PlotlyChart
                     data={plotlyChartData}
                     layout={plotlyLayout}
                     onPlotlyRef={(el) => setChartEl(el)}
+                    className="w-full h-full"
                   />
                 </div>
 

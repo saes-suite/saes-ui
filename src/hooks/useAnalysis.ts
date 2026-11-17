@@ -12,6 +12,7 @@ import {
 import { enrichCellWithAssumptions } from '../lib/stats'
 import { detectDatasetIssues } from '../lib/datasetRepairs'
 import { analyzeRowByRow, inspectDatasetStructure } from '../lib/datasetInspection'
+import { clearWorkspaceCache } from '../lib/workspaceCache'
 
 export interface DatasetValidityInfo {
   isValid: boolean
@@ -462,6 +463,7 @@ export function useAnalysis() {
   // Save dataset changes to backend and update validation
   const saveDataset = useCallback(
     async (filename: string, content: string) => {
+      clearWorkspaceCache(filename)
       const records = parseCsvRecords(content)
       const summary = computeSummary(records, filename)
 
@@ -518,6 +520,7 @@ export function useAnalysis() {
   const updateRecords = useCallback(
     (newRecords: BenchmarkRecord[], currentFilename?: string) => {
       const fn = currentFilename || state.filename || 'benchmark.csv'
+      clearWorkspaceCache(fn)
       const rows = newRecords.map((r) => [
         r.algorithm,
         r.instance,

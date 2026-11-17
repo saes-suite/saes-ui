@@ -55,7 +55,6 @@ export const PaletteSelector: React.FC<PaletteSelectorProps> = ({ selectedId, on
       onChange={onSelect}
       icon={<Palette className="w-4 h-4" />}
       label="Palette:"
-      triggerClassName="min-w-[195px]"
     />
   )
 }

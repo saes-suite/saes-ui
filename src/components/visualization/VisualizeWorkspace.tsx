@@ -179,17 +179,17 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
 
             <TabsTrigger value="profiles" className="gap-2 text-xs font-semibold">
               <TrendingUp className="w-3.5 h-3.5 text-violet-600" />
-              Performance Profiles
+              Benchmark Profiles
             </TabsTrigger>
 
             <TabsTrigger value="power" className="gap-2 text-xs font-semibold">
               <Activity className="w-3.5 h-3.5 text-amber-600" />
-              Power &amp; Design
+              Power &amp; Sample Size
             </TabsTrigger>
 
             <TabsTrigger value="reproducibility" className="gap-2 text-xs font-semibold">
               <Code className="w-3.5 h-3.5 text-blue-600" />
-              Reproducibility
+              Code &amp; Reproducibility
             </TabsTrigger>
           </TabsList>
 
@@ -237,7 +237,11 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
         </TabsContent>
 
         {/* STEP 4: DOLAN-MORE PERFORMANCE PROFILES & META-BENCHMARK */}
-        <TabsContent value="profiles" className="space-y-5 focus-visible:outline-none">
+        <TabsContent
+          value="profiles"
+          forceMount
+          className={`space-y-5 focus-visible:outline-none ${activeTab === 'profiles' ? '' : 'hidden'}`}
+        >
           <PerformanceProfilesWorkspace
             records={records}
             alpha={alpha}
@@ -248,7 +252,11 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
         </TabsContent>
 
         {/* STEP 5: EXPERIMENTAL DESIGN & STATISTICAL POWER */}
-        <TabsContent value="power" className="space-y-5 focus-visible:outline-none">
+        <TabsContent
+          value="power"
+          forceMount
+          className={`space-y-5 focus-visible:outline-none ${activeTab === 'power' ? '' : 'hidden'}`}
+        >
           <PowerAnalysisWorkspace
             records={records}
             alpha={alpha}
@@ -259,7 +267,11 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
         </TabsContent>
 
         {/* STEP 6: REPRODUCIBILITY & FAIR SCRIPTING */}
-        <TabsContent value="reproducibility" className="space-y-5 focus-visible:outline-none">
+        <TabsContent
+          value="reproducibility"
+          forceMount
+          className={`space-y-5 focus-visible:outline-none ${activeTab === 'reproducibility' ? '' : 'hidden'}`}
+        >
           <ReproducibilityWorkspace
             records={records}
             alpha={alpha}
