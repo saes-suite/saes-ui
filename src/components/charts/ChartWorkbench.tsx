@@ -1587,9 +1587,20 @@ export const ChartWorkbench = ({
                 onChange={setXTickAngle}
               />
             )}
+
+            <SelectDropdown
+              label="Size:"
+              value={fontScale}
+              options={[10, 11, 12, 13, 14, 16, 18, 20, 22, 24, 28, 32].map((s) => ({
+                value: s,
+                label: `${s}pt`,
+              }))}
+              onChange={(val) => setFontScale(Number(val))}
+              align="right"
+            />
           </div>
 
-          {/* Title, Labels, Bold, Font Family & Size Selectors */}
+          {/* Title, Labels, Bold & Font Family Selectors */}
           <div className="flex flex-wrap items-center gap-3 text-muted-foreground">
             <SelectDropdown
               label="Title:"
@@ -1658,17 +1669,6 @@ export const ChartWorkbench = ({
               value={fontFamily}
               options={FONT_FAMILIES}
               onChange={setFontFamily}
-              align="right"
-            />
-
-            <SelectDropdown
-              label="Size:"
-              value={fontScale}
-              options={[10, 11, 12, 13, 14, 16, 18, 20, 22, 24, 28, 32].map((s) => ({
-                value: s,
-                label: `${s}pt`,
-              }))}
-              onChange={(val) => setFontScale(Number(val))}
               align="right"
             />
           </div>

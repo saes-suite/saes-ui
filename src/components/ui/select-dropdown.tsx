@@ -111,8 +111,8 @@ export const SelectDropdown: React.FC<SelectDropdownProps> = ({
             }
           }}
           className={cn(
-            'h-9 inline-flex items-center rounded-lg border border-input bg-background pl-3 pr-3.5 text-xs font-medium text-foreground shadow-xs transition-colors hover:bg-accent/50 hover:border-border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer',
-            isFull ? 'w-full justify-between' : 'gap-2.5',
+            'h-9 inline-flex items-center justify-between gap-2.5 rounded-lg border border-input bg-background pl-3 pr-3.5 text-xs font-medium text-foreground shadow-xs transition-colors hover:bg-accent/50 hover:border-border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer',
+            isFull && 'w-full',
             open && 'border-primary/60 ring-1 ring-primary/30',
             disabled && 'opacity-60 cursor-not-allowed hover:bg-background hover:border-input',
             triggerClassName
