@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `SAES-AI API Server URL` configuration, `/health` test button, and `saes_ai_url` persistence in `SettingsModal.tsx` (`client.ts` `getAiHealth()` / `resetAiBaseUrl()`), and updated server launch commands to `saesV2` and `saes-ai`.
+
 ### Fixed
 
 - Routed AI chat, provider probe, and Ollama management endpoints (`/api/v1/chat*`) in `SaesApiClient` (`src/api/client.ts`) through a dedicated `aiClient` / `aiBaseUrl` (defaulting to `http://127.0.0.1:8070` in Vite dev mode and configurable via `setAiBaseUrl` or `saes_ai_url` in `localStorage`) instead of the core `saesV2` API URL (`:8060`).
@@ -16,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Released]
 
 ## [0.2.0] — 2026-11-18 (@rorro6787)
+
+### Added
+
+- Added `SAES-AI API Server URL` configuration, `/health` test button, and `saes_ai_url` persistence in `SettingsModal.tsx` (`client.ts` `getAiHealth()` / `resetAiBaseUrl()`), and updated server launch commands to `saesV2` and `saes-ai`.
 
 ### Fixed
 

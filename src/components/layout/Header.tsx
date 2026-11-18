@@ -198,30 +198,23 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </Button>
 
-            {/* Server Status Pill & Settings modal trigger */}
+            {/* Settings modal trigger with API status color */}
             <button
               type="button"
-              onClick={() => (onOpenSettings ? onOpenSettings('server') : setIsSettingsOpen(true))}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs border transition-colors shadow-xs h-9 cursor-pointer ${
+              onClick={() => (onOpenSettings ? onOpenSettings('ai') : setIsSettingsOpen(true))}
+              className={`flex items-center justify-center w-9 h-9 rounded-md border transition-colors shadow-xs cursor-pointer ${
                 apiOnline
-                  ? 'border-border bg-card hover:bg-muted/50 text-foreground'
-                  : 'border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-300 dark:hover:bg-rose-900/50'
+                  ? 'border-emerald-200 bg-emerald-50/70 text-emerald-600 hover:bg-emerald-100/70 dark:border-emerald-800/70 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/50'
+                  : 'border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-400 dark:hover:bg-rose-900/50'
               }`}
+              aria-label={apiOnline ? 'API Connected — Settings' : 'API Disconnected — Settings'}
               title={
                 apiOnline
-                  ? 'API Connected — Click to view settings'
-                  : 'API Disconnected — Click to configure API connection'
+                  ? 'API Connected — Click to open settings'
+                  : 'API Disconnected — Click to open settings'
               }
             >
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  apiOnline ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'
-                }`}
-              />
-              <span className="text-[11px] font-medium hidden lg:inline">
-                {apiOnline ? 'API Connected' : 'API Disconnected'}
-              </span>
-              <Settings className="w-3.5 h-3.5 text-muted-foreground ml-0.5" />
+              <Settings className={`w-4 h-4 ${apiOnline ? '' : 'animate-pulse'}`} />
             </button>
           </div>
         </div>

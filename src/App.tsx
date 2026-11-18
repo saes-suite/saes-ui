@@ -59,7 +59,7 @@ export function App() {
   const [settingsModal, setSettingsModal] = useState<{
     isOpen: boolean
     initialTab: 'server' | 'ai'
-  }>({ isOpen: false, initialTab: 'server' })
+  }>({ isOpen: false, initialTab: 'ai' })
 
   const {
     rawCsv,
@@ -261,7 +261,7 @@ export function App() {
         onRefreshHealth={checkHealth}
         onToggleChat={() => setIsChatOpen(!isChatOpen)}
         isChatOpen={isChatOpen}
-        onOpenSettings={(tab) => setSettingsModal({ isOpen: true, initialTab: tab || 'server' })}
+        onOpenSettings={(tab) => setSettingsModal({ isOpen: true, initialTab: tab || 'ai' })}
       />
 
       {/* API Offline Warning Banner */}

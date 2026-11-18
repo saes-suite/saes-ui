@@ -65,6 +65,12 @@ export class SaesApiClient {
     this.aiClient.defaults.baseURL = newUrl
   }
 
+  public resetAiBaseUrl(): void {
+    this.hasExplicitAiBaseUrl = false
+    this.aiBaseUrl = isViteDev() ? 'http://127.0.0.1:8070' : this.baseUrl
+    this.aiClient.defaults.baseURL = this.aiBaseUrl
+  }
+
   public getAiBaseUrl(): string {
     return this.aiBaseUrl
   }
@@ -74,6 +80,14 @@ export class SaesApiClient {
    */
   public async getHealth(): Promise<HealthResponse> {
     const res = await this.client.get<HealthResponse>('/health')
+    return res.data
+  }
+
+  /**
+   * Check SAES-AI API health status
+   */
+  public async getAiHealth(): Promise<HealthResponse> {
+    const res = await this.aiClient.get<HealthResponse>('/health')
     return res.data
   }
 

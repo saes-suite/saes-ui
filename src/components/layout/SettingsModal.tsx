@@ -10,6 +10,7 @@ import {
 import { Button } from '../ui/button'
 import { apiClient } from '../../api/client'
 import { useAISettings } from '../../context/AISettingsContext'
+import { useTauri } from '../../hooks/useTauri'
 import { AISettings, ProviderProbeResponse } from '../../api/types'
 import {
   AlertTriangle,
@@ -50,13 +51,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   apiOnline,
   onRefreshHealth,
-  initialTab = 'server',
+  initialTab = 'ai',
 }) => {
   const { settings: savedAiSettings, updateSettings: saveAiSettings } = useAISettings()
+  const { isTauri } = useTauri()
 
   const [activeTab, setActiveTab] = useState<'server' | 'ai'>(initialTab)
   const [apiUrl, setApiUrl] = useState<string>(() => apiClient.getBaseUrl())
+  const [aiApiUrl, setAiApiUrl] = useState<string>(() => apiClient.getAiBaseUrl())
   const [serverTestStatus, setServerTestStatus] = useState<
+    'idle' | 'testing' | 'success' | 'failed'
+  >('idle')
+  const [aiServerTestStatus, setAiServerTestStatus] = useState<
     'idle' | 'testing' | 'success' | 'failed'
   >('idle')
 
@@ -91,8 +97,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (isOpen) {
       setActiveTab(initialTab)
       setApiUrl(apiClient.getBaseUrl())
+      setAiApiUrl(apiClient.getAiBaseUrl())
       setAiForm(savedAiSettings)
       setServerTestStatus('idle')
+      setAiServerTestStatus('idle')
       setProbeStatus('idle')
       setProbeResult(null)
       setIsStartingOllama(false)
@@ -115,10 +123,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }
 
   const handleSave = () => {
-    // 1. Save Backend Server URL
-    apiClient.setBaseUrl(apiUrl.trim())
+    // 1. Save Backend Server URLs
+    const trimmedApiUrl = apiUrl.trim()
+    apiClient.setBaseUrl(trimmedApiUrl)
     if (typeof window !== 'undefined') {
-      localStorage.setItem('saes_api_url', apiUrl.trim())
+      localStorage.setItem('saes_api_url', trimmedApiUrl)
+    }
+
+    if (!isTauri) {
+      const trimmedAiUrl = aiApiUrl.trim()
+      if (trimmedAiUrl) {
+        apiClient.setAiBaseUrl(trimmedAiUrl)
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('saes_ai_url', trimmedAiUrl)
+        }
+      } else {
+        apiClient.resetAiBaseUrl()
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('saes_ai_url')
+        }
+      }
     }
     onRefreshHealth()
 
@@ -141,6 +165,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       }
     } catch {
       setServerTestStatus('failed')
+    }
+  }
+
+  const handleTestAiServerConnection = async () => {
+    setAiServerTestStatus('testing')
+    try {
+      const trimmedAiUrl = aiApiUrl.trim()
+      if (trimmedAiUrl) {
+        apiClient.setAiBaseUrl(trimmedAiUrl)
+      } else {
+        apiClient.resetAiBaseUrl()
+      }
+      const health = await apiClient.getAiHealth()
+      if (health.status === 'ok') {
+        setAiServerTestStatus('success')
+      } else {
+        setAiServerTestStatus('failed')
+      }
+    } catch {
+      setAiServerTestStatus('failed')
     }
   }
 
@@ -261,45 +305,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Server className="w-5 h-5 text-primary" />
-            Application Settings
+            {activeTab === 'ai' ? (
+              <Bot className="w-5 h-5 text-primary" />
+            ) : (
+              <Server className="w-5 h-5 text-primary" />
+            )}
+            {activeTab === 'ai' ? 'AI Provider & Models' : 'Backend Server (Debug)'}
           </DialogTitle>
           <DialogDescription>
-            Configure SAES backend server connection and AI consultant providers.
+            {activeTab === 'ai'
+              ? 'Configure AI consultant providers, API keys, and local models.'
+              : 'Configure SAES backend server connection and test connectivity.'}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-border/80 gap-2 mt-2">
-          <button
-            type="button"
-            onClick={() => setActiveTab('server')}
-            className={`flex items-center gap-2 px-3 py-2 text-xs font-semibold border-b-2 transition-colors ${
-              activeTab === 'server'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Server className="w-3.5 h-3.5" />
-            Backend Server
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('ai')}
-            className={`flex items-center gap-2 px-3 py-2 text-xs font-semibold border-b-2 transition-colors ${
-              activeTab === 'ai'
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Bot className="w-3.5 h-3.5" />
-            AI Provider & Models
-          </button>
-        </div>
-
-        {/* Tab 1: Server Settings */}
+        {/* Tab 1: Server Settings (Debug) */}
         {activeTab === 'server' && (
           <div className="space-y-4 py-3">
+            <div className="flex items-center justify-between pb-2 border-b border-border/60">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Server className="w-3.5 h-3.5" />
+                Backend Server (Debug)
+              </span>
+              <button
+                type="button"
+                onClick={() => setActiveTab('ai')}
+                className="text-xs text-primary hover:underline font-medium"
+              >
+                ← Back to AI Settings
+              </button>
+            </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">SAES API Server URL</label>
               <div className="flex gap-2">
@@ -328,12 +363,66 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   )}
                 </Button>
               </div>
+              {serverTestStatus === 'success' && (
+                <p className="text-xs text-emerald-500 flex items-center gap-1 font-medium">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> SAES API Connected
+                </p>
+              )}
+              {serverTestStatus === 'failed' && (
+                <p className="text-xs text-amber-500 flex items-center gap-1 font-medium">
+                  <XCircle className="w-3.5 h-3.5" /> SAES API Offline
+                </p>
+              )}
             </div>
+
+            {!isTauri && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">
+                  SAES-AI API Server URL
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={aiApiUrl}
+                    onChange={(e) => {
+                      setAiApiUrl(e.target.value)
+                      setAiServerTestStatus('idle')
+                    }}
+                    placeholder="http://127.0.0.1:8070"
+                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleTestAiServerConnection}
+                    disabled={aiServerTestStatus === 'testing'}
+                    className="flex items-center gap-1.5 shrink-0"
+                  >
+                    {aiServerTestStatus === 'testing' ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      'Test'
+                    )}
+                  </Button>
+                </div>
+                {aiServerTestStatus === 'success' && (
+                  <p className="text-xs text-emerald-500 flex items-center gap-1 font-medium">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> SAES-AI Connected
+                  </p>
+                )}
+                {aiServerTestStatus === 'failed' && (
+                  <p className="text-xs text-amber-500 flex items-center gap-1 font-medium">
+                    <XCircle className="w-3.5 h-3.5" /> SAES-AI Offline
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50 text-xs">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-muted-foreground">Status:</span>
-                {apiOnline || serverTestStatus === 'success' ? (
+                {serverTestStatus !== 'failed' && (apiOnline || serverTestStatus === 'success') ? (
                   <span className="flex items-center gap-1 text-emerald-500 font-medium">
                     <CheckCircle2 className="w-4 h-4" /> Connected (FastAPI v{__APP_VERSION__})
                   </span>
@@ -351,15 +440,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               >
                 Recheck
               </Button>
-            </div>
-
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p>
-                💡 <strong>Server command:</strong> To launch the FastAPI server in the background:
-              </p>
-              <pre className="p-2 bg-muted/60 rounded text-[11px] font-mono text-foreground overflow-x-auto">
-                cd ../saes && make start-api
-              </pre>
             </div>
           </div>
         )}
@@ -1062,11 +1142,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         )}
 
-        <DialogFooter className="gap-2 sm:gap-0 mt-3">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>Save Configuration</Button>
+        <DialogFooter className="flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 mt-3">
+          {activeTab === 'ai' ? (
+            <button
+              type="button"
+              onClick={() => setActiveTab('server')}
+              className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground/70 hover:text-muted-foreground transition-colors self-start sm:self-auto"
+            >
+              <Server className="w-3 h-3" />
+              Debug: Backend Server
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave}>Save Configuration</Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
