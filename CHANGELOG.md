@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [Released]
+
+## [0.2.0] — 2026-11-18 (@rorro6787)
+
 ### Fixed
 
 - Fixed overlapping legend and X-axis title collision in Dolan-Moré Step Profile Curve $\rho(\tau)$ (`PerformanceProfilesWorkspace.tsx`) and Power Curves (`PowerAnalysisWorkspace.tsx`) by establishing top-anchored legend positioning (`yanchor: 'top'`), adding axis title standoff distance, dynamically expanding bottom margins and container height proportional to wrapped algorithm legend rows, preventing horizontal legends from encroaching onto the X-axis label.
@@ -47,4 +51,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated dataset editor navigation origin tracking so returning from "Edit Data" inside the analysis workspace returns to the workspace (`Back to Analysis`) rather than resetting to the dataset hub.
 - Removed client-side statistical approximations from `src/lib/stats.ts` and `ChartWorkbench.tsx`; all hypothesis testing, assumptions, group summaries, and multi-algorithm rankings are now computed exclusively by the `saes` Python backend.
 
-## [Released]
