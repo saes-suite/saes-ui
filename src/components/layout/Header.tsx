@@ -74,7 +74,7 @@ export const Header: React.FC<HeaderProps> = ({
                     SAES
                   </span>
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono font-medium">
-                    v0.1.0
+                    v{__APP_VERSION__}
                   </span>
                   {/* Runtime Badge */}
                   {isTauri ? (

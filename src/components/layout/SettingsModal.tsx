@@ -335,7 +335,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <span className="font-semibold text-muted-foreground">Status:</span>
                 {apiOnline || serverTestStatus === 'success' ? (
                   <span className="flex items-center gap-1 text-emerald-500 font-medium">
-                    <CheckCircle2 className="w-4 h-4" /> Connected (FastAPI v0.1.0)
+                    <CheckCircle2 className="w-4 h-4" /> Connected (FastAPI v{__APP_VERSION__})
                   </span>
                 ) : (
                   <span className="flex items-center gap-1 text-amber-500 font-medium">

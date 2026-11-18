@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Routed AI chat, provider probe, and Ollama management endpoints (`/api/v1/chat*`) in `SaesApiClient` (`src/api/client.ts`) through a dedicated `aiClient` / `aiBaseUrl` (defaulting to `http://127.0.0.1:8070` in Vite dev mode and configurable via `setAiBaseUrl` or `saes_ai_url` in `localStorage`) instead of the core `saesV2` API URL (`:8060`).
+- Injected `__APP_VERSION__` from `package.json` in `vite.config.ts` so `Header.tsx` and `SettingsModal.tsx` display the current version dynamically instead of hardcoded `v0.1.0`.
+- Updated `README.md` to reflect umbrella Tauri v2 packaging, `saesV2`/`saes-ai` endpoints, and unified logo sizing.
+
 ## [Released]
 
 ## [0.2.0] — 2026-11-18 (@rorro6787)
