@@ -1,67 +1,77 @@
-name: Tauri Multi-Platform Desktop Release
+name: Release Stamp
 
 on:
-  push:
-    tags:
-      - "v*"
+  pull_request:
+    types: [closed]
+    branches: [main, master]
   workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump type"
+        required: true
+        type: choice
+        default: minor
+        options:
+          - minor
+          - patch
+          - major
 
 permissions:
   contents: write
 
 jobs:
-  build-tauri:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: "macos-latest"
-            target: "aarch64-apple-darwin"
-          - platform: "macos-latest"
-            target: "x86_64-apple-darwin"
-          - platform: "ubuntu-22.04"
-            target: "x86_64-unknown-linux-gnu"
-          - platform: "windows-latest"
-            target: "x86_64-pc-windows-msvc"
-
-    runs-on: ${{ matrix.platform }}
+  release:
+    name: Stamp Changelog & Bump Version
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: "22"
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 12
-
-      - name: Install Rust stable
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Install Linux dependencies (Ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04'
+      - name: Determine bump type from branch name or manual input
+        id: bump
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "branch=manual" >> "$GITHUB_OUTPUT"
+            echo "author=@${{ github.actor }}" >> "$GITHUB_OUTPUT"
+            echo "bump=${{ inputs.bump }}" >> "$GITHUB_OUTPUT"
+          else
+            BRANCH="${{ github.event.pull_request.head.ref }}"
+            AUTHOR="@${{ github.event.pull_request.user.login }}"
 
-      - name: Install Node dependencies
-        run: pnpm install
+            echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+            echo "author=$AUTHOR" >> "$GITHUB_OUTPUT"
 
-      - name: Build Tauri Desktop Application
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "SAES v__VERSION__"
-          releaseBody: "Automated desktop binaries release for SAES Algorithm Evaluation Suite."
-          releaseDraft: false
-          prerelease: false
-          args: --target ${{ matrix.target }}
+            if [[ "$BRANCH" == major/* || "$BRANCH" == major-* ]]; then
+              echo "bump=major" >> "$GITHUB_OUTPUT"
+            elif [[ "$BRANCH" == patch/* || "$BRANCH" == patch-* || \
+                    "$BRANCH" == fix/* || "$BRANCH" == fix-* || \
+                    "$BRANCH" == hotfix/* || "$BRANCH" == hotfix-* ]]; then
+              echo "bump=patch" >> "$GITHUB_OUTPUT"
+            else
+              echo "bump=minor" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Stamp changelog and bump version
+        run: |
+          node scripts/release_stamp.cjs \
+            --bump "${{ steps.bump.outputs.bump }}" \
+            --author "${{ steps.bump.outputs.author }}"
+
+      - name: Commit and push release changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add version.txt CHANGELOG.md package.json
+          RELEASE_VERSION=$(cat version.txt | sed 's/-SNAPSHOT//')
+          git commit -m "Setting release v${RELEASE_VERSION} from ${{ steps.bump.outputs.branch }} [skip ci]"
+          git push

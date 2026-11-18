@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/saes-logo.svg" alt="SAES Logo" width="120" />
+</p>
+
 # SAES-UI — Modern Dual-Target Web & Tauri Desktop Application
 
 > **Stochastic Algorithm Evaluation Suite (SAES)**  
@@ -12,7 +16,7 @@
 1. **Standalone Single Page Application (Web SPA)**:
    - Zero-install, browser-based execution.
    - HTML5 drag-and-drop CSV parser with instant schema inspection.
-   - Communicates with `saes` FastAPI REST server (`http://127.0.0.1:8000`).
+   - Communicates with `saes` FastAPI REST server (`http://127.0.0.1:8060`).
    - Client-side fallback engine enabling fully interactive exploration even in offline demo mode.
 
 2. **Native Lightweight Desktop Application (Tauri v2)**:
@@ -123,7 +127,7 @@ make ci
 To launch the backend server locally:
 ```bash
 cd ../saes
-make start-api   # runs uvicorn on port 8000
+make start-api   # runs uvicorn on port 8060
 ```
 
 ---

@@ -293,9 +293,11 @@ export function useAnalysis() {
 
   useEffect(() => {
     checkHealth()
-    const timer = setInterval(checkHealth, 30000)
+    // Poll faster while offline so the desktop sidecar connects as soon as it finishes booting
+    const intervalMs = state.apiOnline ? 30000 : 1500
+    const timer = setInterval(checkHealth, intervalMs)
     return () => clearInterval(timer)
-  }, [checkHealth])
+  }, [checkHealth, state.apiOnline])
 
   const setAlpha = useCallback((alpha: number) => {
     setState((prev) => ({ ...prev, alpha }))

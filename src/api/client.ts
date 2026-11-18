@@ -26,7 +26,7 @@ export class SaesApiClient {
   private client: AxiosInstance
   private baseUrl: string
 
-  constructor(baseUrl: string = 'http://127.0.0.1:8000') {
+  constructor(baseUrl: string = 'http://127.0.0.1:8060') {
     this.baseUrl = baseUrl
     this.client = axios.create({
       baseURL: this.baseUrl,
@@ -1012,4 +1012,4 @@ export class SaesApiClient {
 
 // Global default instance with configurable base url from localStorage if present
 const storedBaseUrl = typeof window !== 'undefined' ? localStorage.getItem('saes_api_url') : null
-export const apiClient = new SaesApiClient(storedBaseUrl || 'http://127.0.0.1:8000')
+export const apiClient = new SaesApiClient(storedBaseUrl || 'http://127.0.0.1:8060')

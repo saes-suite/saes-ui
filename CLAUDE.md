@@ -9,7 +9,7 @@
 
 **Who**: SAES development team.
 
-**Goal**: Provide a publication-grade interactive client that connects with the `saes` REST API (`http://127.0.0.1:8000`) and `saes-ai` REST API (`http://127.0.0.1:8001`).
+**Goal**: Provide a publication-grade interactive client that connects with the `saes` REST API (`http://127.0.0.1:8060`) and `saes-ai` REST API (`http://127.0.0.1:8070`).
 
 ---
 

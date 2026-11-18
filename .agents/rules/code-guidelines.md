@@ -13,14 +13,14 @@ trigger: always_on
 
 **Who**: SAES development team.
 
-**Goal**: Deliver a responsive, resilient scientific workbench interfacing strictly with the `saes` FastAPI REST API (`http://127.0.0.1:8000`) and `saes-ai` REST API (`http://127.0.0.1:8001`).
+**Goal**: Deliver a responsive, resilient scientific workbench interfacing strictly with the `saes` FastAPI REST API (`http://127.0.0.1:8060`) and `saes-ai` REST API (`http://127.0.0.1:8070`).
 
 ---
 
 ## Non-Negotiable Architecture Rules (Thin Client & API-First)
 
 1. **No Client-Side Domain Calculations**: `saes-ui` MUST NOT compute statistical tests, hypothesis decisions, dataset validations, dataset repairs, or AI interpretations locally in TypeScript/JavaScript.
-2. **Backend & Python API Parity**: Every feature in `saes-ui` MUST consume an endpoint from `saes` (`:8000`) or `saes-ai` (`:8001`), and that endpoint MUST correspond to a programmatic Python API in `saes` or `saes-ai` for Python developers.
+2. **Backend & Python API Parity**: Every feature in `saes-ui` MUST consume an endpoint from `saes` (`:8060`) or `saes-ai` (`:8070`), and that endpoint MUST correspond to a programmatic Python API in `saes` or `saes-ai` for Python developers.
 3. **UI Responsibility**: `saes-ui` is strictly responsible for user interaction, state management, API orchestration (`src/api/`), and rendering data/visualizations returned by the Python APIs.
 
 ---

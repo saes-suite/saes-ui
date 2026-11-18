@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Stamp CHANGELOG.md and bump version.txt, package.json, and Tauri desktop configs (Cargo.toml & tauri.conf.json).
+ * Stamp CHANGELOG.md and bump version.txt and package.json.
  *
  * Usage:
  *     node scripts/release_stamp.js --bump minor --author @username
@@ -30,8 +30,6 @@ function parseArgs() {
     versionFile: "version.txt",
     changelogFile: "CHANGELOG.md",
     packageFile: "package.json",
-    tauriConfFile: "src-tauri/tauri.conf.json",
-    cargoFile: "src-tauri/Cargo.toml",
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -154,24 +152,6 @@ function main() {
     pkg.version = nextVersion;
     fs.writeFileSync(packagePath, JSON.stringify(pkg, null, 2) + "\n");
     console.log(`✅ package.json version bumped to ${nextVersion}`);
-  }
-
-  // Update src-tauri/tauri.conf.json
-  const tauriConfPath = path.resolve(args.tauriConfFile);
-  if (fs.existsSync(tauriConfPath)) {
-    const tauriConf = JSON.parse(fs.readFileSync(tauriConfPath, "utf-8"));
-    tauriConf.version = nextVersion;
-    fs.writeFileSync(tauriConfPath, JSON.stringify(tauriConf, null, 2) + "\n");
-    console.log(`✅ src-tauri/tauri.conf.json version bumped to ${nextVersion}`);
-  }
-
-  // Update src-tauri/Cargo.toml
-  const cargoPath = path.resolve(args.cargoFile);
-  if (fs.existsSync(cargoPath)) {
-    let cargoContent = fs.readFileSync(cargoPath, "utf-8");
-    cargoContent = cargoContent.replace(/^version = ".*?"/m, `version = "${nextVersion}"`);
-    fs.writeFileSync(cargoPath, cargoContent);
-    console.log(`✅ src-tauri/Cargo.toml version bumped to ${nextVersion}`);
   }
 
   console.log(`\n✅ Changelog stamped as ${release}`);

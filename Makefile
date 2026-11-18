@@ -1,4 +1,4 @@
-.PHONY: help install dev desktop build-web build-desktop lint format typecheck ci clean version release-dry-run release-stamp branch
+.PHONY: help install dev build-web lint format typecheck ci clean version release-dry-run release-stamp branch
 
 SHELL := /bin/bash
 export PATH := $(HOME)/.cargo/bin:/opt/homebrew/bin:$(PATH)
@@ -16,14 +16,8 @@ install: ## Install dependencies via pnpm
 dev: ## Launch web development server (Vite)
 	pnpm dev
 
-desktop: ## Launch Tauri desktop app in dev mode (tauri dev)
-	pnpm desktop
-
 build-web: ## Build static SPA into dist/
 	pnpm build
-
-build-desktop: ## Build native desktop installer (tauri build)
-	pnpm build-desktop
 
 lint: ## Run ESLint and Prettier checks
 	pnpm lint
@@ -39,7 +33,7 @@ typecheck: ## Run TypeScript typecheck without emitting output
 ci: lint typecheck ## Run CI quality gates (lint + typecheck)
 
 clean: ## Clean build artifacts and dist folder
-	rm -rf dist src-tauri/target
+	rm -rf dist
 
 version: ## Show current version from version.txt
 	@cat version.txt
@@ -47,7 +41,7 @@ version: ## Show current version from version.txt
 release-dry-run: ## Preview release stamp without modifying files
 	@node scripts/release_stamp.cjs --dry-run --bump $(BUMP) $(if $(AUTHOR),--author $(AUTHOR),)
 
-release-stamp: ## Stamp changelog and bump version across package.json & Tauri configs
+release-stamp: ## Stamp changelog and bump version across version.txt & package.json
 	@node scripts/release_stamp.cjs --bump $(BUMP) $(if $(AUTHOR),--author $(AUTHOR),)
 
 branch: ## Create a new branch with the correct version prefix

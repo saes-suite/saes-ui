@@ -272,7 +272,7 @@ export function App() {
               <WifiOff className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
               <span>
                 <strong>Backend API Disconnected:</strong> The SAES backend service is offline.
-                Connect to http://127.0.0.1:8000 for schema validation and automated hypothesis
+                Connect to http://127.0.0.1:8060 for schema validation and automated hypothesis
                 testing.
               </span>
             </div>

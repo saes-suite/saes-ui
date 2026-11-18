@@ -301,7 +301,7 @@ export function useChat(
               }
             } catch {
               accumulatedText =
-                '⚠️ **Backend API unreachable.** Please ensure the SAES backend (`:8000` / `:8001`) and your configured AI provider are running.'
+                '⚠️ **Backend API unreachable.** Please ensure the SAES backend (`:8060` / `:8070`) and your configured AI provider are running.'
               contextWasUsed = false
             }
           } else {
