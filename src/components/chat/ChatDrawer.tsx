@@ -10,13 +10,13 @@ import {
   Cpu,
   Zap,
   Flame,
-  Layers,
   Settings,
+  Paperclip,
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { ChatMessage } from './ChatMessage'
 import { QuickChips } from './QuickChips'
-import { ChatMessageItem } from '../../hooks/useChat'
+import { ChatAttachment, ChatMessageItem } from '../../hooks/useChat'
 import { useAISettings } from '../../context/AISettingsContext'
 
 interface ChatDrawerProps {
@@ -25,6 +25,9 @@ interface ChatDrawerProps {
   messages: ChatMessageItem[]
   isLoading: boolean
   error: string | null
+  attachment: ChatAttachment | null
+  onAttachFile: (file: File) => void
+  onClearAttachment: () => void
   onSendMessage: (query: string) => void
   onClearHistory: () => void
   onOpenSettings?: () => void
@@ -36,6 +39,9 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   messages,
   isLoading,
   error,
+  attachment,
+  onAttachFile,
+  onClearAttachment,
   onSendMessage,
   onClearHistory,
   onOpenSettings,
@@ -43,7 +49,9 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
   const { settings: aiSettings } = useAISettings()
   const [input, setInput] = useState('')
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const isNearBottomRef = useRef(true)
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -64,10 +72,27 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
 
   const handleSend = (e?: React.FormEvent) => {
     if (e) e.preventDefault()
-    if (!input.trim() || isLoading) return
+    if ((!input.trim() && !attachment) || isLoading) return
     isNearBottomRef.current = true
     onSendMessage(input)
     setInput('')
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      onAttachFile(file)
+    }
+    e.target.value = ''
+  }
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file && (file.name.toLowerCase().endsWith('.csv') || file.type === 'text/csv')) {
+      onAttachFile(file)
+    }
   }
 
   const handleChipClick = (prompt: string) => {
@@ -109,18 +134,24 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
       )
     }
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] text-orange-600 dark:text-orange-400 font-medium">
-        <Layers className="w-3 h-3" />
-        Offline Rules
+      <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+        <Cpu className="w-3 h-3" />
+        Local: {aiSettings.localModel || 'Not selected'}
       </span>
     )
   }
 
   return (
     <div
-      className={`fixed bottom-4 right-4 z-50 flex flex-col bg-background/95 backdrop-blur-md border border-border shadow-2xl rounded-2xl overflow-hidden transition-all duration-300 ${
-        isExpanded ? 'w-[95vw] sm:w-[680px] h-[85vh]' : 'w-[92vw] sm:w-[460px] h-[600px]'
-      } ${
+      onDragOver={(e) => {
+        e.preventDefault()
+        setIsDragging(true)
+      }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={handleDrop}
+      className={`fixed bottom-4 right-4 z-50 flex flex-col bg-background/95 backdrop-blur-md border shadow-2xl rounded-2xl overflow-hidden transition-all duration-300 ${
+        isDragging ? 'border-primary ring-2 ring-primary/40' : 'border-border'
+      } ${isExpanded ? 'w-[95vw] sm:w-[680px] h-[85vh]' : 'w-[92vw] sm:w-[460px] h-[600px]'} ${
         isOpen
           ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto'
           : 'opacity-0 translate-y-4 scale-95 pointer-events-none invisible'
@@ -135,7 +166,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
           </div>
           <div>
             <h3 className="text-xs font-bold text-foreground flex items-center gap-1.5">
-              SAES AI Statistical Consultant
+              SAES Chatbot
             </h3>
             <div className="flex items-center gap-1.5 mt-0.5">
               <button
@@ -213,23 +244,66 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
         <QuickChips onSelectChip={handleChipClick} disabled={isLoading} />
       </div>
 
+      {/* Staged CSV Attachment Pill */}
+      {attachment && (
+        <div className="px-3 py-1.5 border-t border-border/50 bg-primary/5 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-1.5 text-foreground font-mono truncate">
+            <Paperclip className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span className="truncate">{attachment.filename}</span>
+            <span className="text-[10px] text-muted-foreground shrink-0">
+              ({Math.max(1, Math.round(attachment.sizeBytes / 1024))} KB)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onClearAttachment}
+            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
+            title="Remove attachment"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Input Form */}
       <form
         onSubmit={handleSend}
         className="p-3 border-t border-border/60 bg-background flex items-center gap-2"
       >
         <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={isLoading}
+          onClick={() => fileInputRef.current?.click()}
+          className="h-9 px-2.5 text-muted-foreground hover:text-foreground"
+          title="Upload or attach a CSV dataset for the agent to inspect/fix"
+        >
+          <Paperclip className="w-3.5 h-3.5" />
+        </Button>
+        <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about effect sizes, normality violations, Welch tests..."
+          placeholder={
+            attachment
+              ? `Ask about ${attachment.filename} (e.g. "Check & fix this dataset")...`
+              : 'Ask the agent to inspect, fix, create datasets, KPIs, or navigate...'
+          }
           disabled={isLoading}
           className="flex-1 h-9 rounded-lg border border-input bg-muted/40 px-3 text-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
         />
         <Button
           type="submit"
           size="sm"
-          disabled={!input.trim() || isLoading}
+          disabled={(!input.trim() && !attachment) || isLoading}
           className="h-9 px-3 gap-1 bg-purple-600 hover:bg-purple-700 text-white"
         >
           <Send className="w-3.5 h-3.5" />

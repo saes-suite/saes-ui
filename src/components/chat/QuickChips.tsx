@@ -7,23 +7,31 @@ interface QuickChipsProps {
 
 const CHIPS = [
   {
-    label: '📊 Summarize Findings',
-    prompt:
-      'Summarize the statistical findings across all benchmark problem instances and metrics.',
+    label: '📂 List Datasets',
+    prompt: 'List all uploaded datasets and tell me which ones are valid.',
   },
   {
-    label: "🔍 Why was Welch's test chosen?",
-    prompt: "Why was Welch's test chosen instead of standard Student's t-test or ANOVA?",
+    label: '📊 Extract KPIs',
+    prompt: 'Extract KPIs and performance summary for the active dataset.',
   },
   {
-    label: '📐 Interpret Effect Sizes',
+    label: '🧪 Normality & Test Advice',
     prompt:
-      "How should I interpret the calculated effect sizes (Cohen's d and eta-squared) for this benchmark?",
+      'Check normality and homoscedasticity assumptions on this dataset and recommend the best statistical tests.',
   },
   {
-    label: '⚠️ Check Assumption Violations',
+    label: '📈 Plot CD Diagram',
     prompt:
-      "Were there any violations of normality (Shapiro-Wilk) or homoscedasticity (Levene's test) in this dataset?",
+      'Generate and show a critical-distance diagram for the active dataset right here in chat.',
+  },
+  {
+    label: '📋 Generate Table',
+    prompt: 'Generate a statistical comparison table for the active dataset and show it here.',
+  },
+  {
+    label: '✨ Create Sample Dataset',
+    prompt:
+      'Create a valid sample SAES benchmark dataset with 3 algorithms and 3 instances, save it, and open it in Visualize.',
   },
 ]
 

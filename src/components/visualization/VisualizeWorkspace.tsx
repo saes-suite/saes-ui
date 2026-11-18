@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   ArrowLeft,
   BarChart2,
@@ -35,6 +35,11 @@ interface VisualizeWorkspaceProps {
   alpha: number
   isAnalyzing?: boolean
   apiOnline: boolean
+  activeTab?: WorkspaceTab
+  onTabChange?: (tab: WorkspaceTab) => void
+  initialTestType?: StatisticalTestType
+  initialTableType?: TableType
+  initialMetric?: string
   onAlphaChange: (alpha: number) => void
   onRunAnalysis?: () => Promise<void>
   onBackToHub: () => void
@@ -53,17 +58,42 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
   analysis,
   alpha,
   apiOnline,
+  activeTab: controlledTab,
+  onTabChange,
+  initialTestType,
+  initialTableType,
+  initialMetric,
   onAlphaChange,
   onBackToHub,
   onOpenEditor,
   onOpenChat: _onOpenChat,
 }) => {
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>('data')
+  const [internalTab, setInternalTab] = useState<WorkspaceTab>('data')
+  const activeTab = controlledTab ?? internalTab
+  const setActiveTab = (tab: WorkspaceTab) => {
+    setInternalTab(tab)
+    onTabChange?.(tab)
+  }
+
   const [workbenchTestType, setWorkbenchTestType] = useState<StatisticalTestType | undefined>(
-    undefined
+    initialTestType
   )
-  const [workbenchTableType, setWorkbenchTableType] = useState<TableType | undefined>(undefined)
-  const [workbenchMetric, setWorkbenchMetric] = useState<string | undefined>(undefined)
+  const [workbenchTableType, setWorkbenchTableType] = useState<TableType | undefined>(
+    initialTableType
+  )
+  const [workbenchMetric, setWorkbenchMetric] = useState<string | undefined>(initialMetric)
+
+  useEffect(() => {
+    if (initialTestType !== undefined) setWorkbenchTestType(initialTestType)
+  }, [initialTestType])
+
+  useEffect(() => {
+    if (initialTableType !== undefined) setWorkbenchTableType(initialTableType)
+  }, [initialTableType])
+
+  useEffect(() => {
+    if (initialMetric !== undefined) setWorkbenchMetric(initialMetric)
+  }, [initialMetric])
 
   const handleSelectRecommendedTest = (
     testId: StatisticalTestType,

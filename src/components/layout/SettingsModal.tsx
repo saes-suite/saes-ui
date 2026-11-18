@@ -21,7 +21,6 @@ import {
   Eye,
   EyeOff,
   Flame,
-  Layers,
   Play,
   PlusCircle,
   RefreshCw,
@@ -373,26 +372,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Select AI Engine
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {/* Offline Rules (Recommended / Default) */}
-                <button
-                  type="button"
-                  onClick={() => handleSelectProvider('offline')}
-                  className={`p-2.5 rounded-lg border text-left transition-all ${
-                    aiForm.provider === 'offline'
-                      ? 'border-primary bg-primary/10 shadow-xs ring-1 ring-primary'
-                      : 'border-border bg-card hover:bg-muted/40'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <Layers className="w-4 h-4 text-orange-500" />
-                    <span className="text-xs font-bold text-foreground">Offline Rules</span>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground leading-tight">
-                    Deterministic statistical rules (Default, No LLM, zero network)
-                  </p>
-                </button>
-
+              <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
                 {/* Local Ollama */}
                 <button
                   type="button"
@@ -471,29 +451,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
 
-            {/* Provider 1: Offline Rules */}
-            {aiForm.provider === 'offline' && (
-              <div className="p-3.5 rounded-xl border border-border bg-muted/30 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-orange-500" />
-                    <span className="text-xs font-bold text-foreground">
-                      Deterministic Statistical Expert (Active)
-                    </span>
-                  </div>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium">
-                    Ready (No API Key Required)
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Interprets hypothesis testing results, Welch-Satterthwaite degrees of freedom,
-                  normality diagnostics, and effect size practical significance using deterministic
-                  scientific rules directly on your machine.
-                </p>
-              </div>
-            )}
-
-            {/* Provider 2: Local AI (Ollama) */}
+            {/* Provider 1: Local AI (Ollama) */}
             {aiForm.provider === 'local' && (
               <div className="space-y-3 p-3.5 rounded-xl border border-border bg-muted/20">
                 <div className="flex items-center justify-between">

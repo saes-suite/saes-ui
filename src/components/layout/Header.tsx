@@ -1,18 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { AppWindow, Database, Globe, Moon, Settings, Sun, ZoomIn, ZoomOut } from 'lucide-react'
+import { AppWindow, Globe, Moon, Settings, Sun, ZoomIn, ZoomOut } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { SettingsModal } from './SettingsModal'
-import { DatasetItem } from '../../api/types'
 import { useAppearance, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP } from '../../context/AppearanceContext'
 
 interface HeaderProps {
   isTauri: boolean
   apiOnline: boolean
-  datasets: DatasetItem[]
-  selectedDatasetFilename: string | null
   onNavigateHub: () => void
-  onSelectDataset: (filename: string) => void
   onRefreshHealth: () => void
   onToggleChat?: () => void
   isChatOpen?: boolean
@@ -22,10 +18,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   isTauri,
   apiOnline,
-  datasets,
-  selectedDatasetFilename,
   onNavigateHub,
-  onSelectDataset,
   onRefreshHealth,
   onOpenSettings,
 }) => {
@@ -104,35 +97,8 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
-          {/* Right: Dataset Selector, Server Health, Settings */}
+          {/* Right: Zoom, Server Health, Settings */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Quick Dataset Switcher (only if multiple datasets exist) */}
-            {datasets.length > 1 && (
-              <div className="hidden sm:flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs shadow-xs h-9">
-                <Database className="w-3.5 h-3.5 text-primary shrink-0" />
-                <select
-                  value={selectedDatasetFilename || ''}
-                  onChange={(e) => onSelectDataset(e.target.value)}
-                  className="bg-transparent text-xs text-foreground focus:outline-none cursor-pointer max-w-[140px] truncate"
-                  title="Switch dataset"
-                >
-                  <option value="" disabled className="bg-popover text-foreground">
-                    Switch dataset...
-                  </option>
-                  {datasets.map((d) => (
-                    <option
-                      key={d.filename}
-                      value={d.filename}
-                      className="bg-popover text-foreground"
-                    >
-                      {d.name.replace(/\.csv$/i, '')}{' '}
-                      {d.row_count !== undefined ? `(${d.row_count} rows)` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
             {/* Zoom Range Slider Control */}
             <div
               className="flex items-center gap-1 sm:gap-1.5 rounded-lg border border-border bg-card px-2 sm:px-2.5 shadow-xs h-9 shrink-0 select-none"

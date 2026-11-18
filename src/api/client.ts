@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios'
 import {
   AnalysisResponse,
+  ChatArtifact,
   ChatRequest,
   ChatResponse,
   DataExplorationQueryParams,
@@ -9,6 +10,7 @@ import {
   DatasetItem,
   HealthResponse,
   PerformanceProfilesResponse,
+  PlotExportFormat,
   PowerAnalysisResponse,
   ProviderProbeResponse,
   RankingAnalysisResponse,
@@ -16,6 +18,7 @@ import {
   StatisticalTableQueryParams,
   StatisticalTableResponse,
   TableExportFormat,
+  UIAction,
   ValidationResponse,
 } from './types'
 
@@ -692,13 +695,25 @@ export class SaesApiClient {
   }
 
   /**
-   * Send question to statistical chat assistant with live token streaming via POST /api/v1/chat/stream
+   * Send question to statistical chat assistant with live token & tool event streaming
    */
   public async chatStream(
     req: ChatRequest,
     onToken: (token: string, contextUsed: boolean) => void,
-    signal?: AbortSignal
-  ): Promise<{ fullText: string; contextUsed: boolean }> {
+    signal?: AbortSignal,
+    callbacks?: {
+      onThought?: (thought: string) => void
+      onToolCall?: (tool: string, args?: Record<string, unknown>) => void
+      onToolResult?: (tool: string, ok: boolean, summary: string) => void
+      onUIAction?: (action: UIAction) => void
+      onArtifact?: (artifact: ChatArtifact) => void
+    }
+  ): Promise<{
+    fullText: string
+    contextUsed: boolean
+    uiActions: UIAction[]
+    artifacts: ChatArtifact[]
+  }> {
     const targetUrl = `${this.getBaseUrl().replace(/\/+$/, '')}/api/v1/chat/stream`
     const res = await fetch(targetUrl, {
       method: 'POST',
@@ -722,6 +737,44 @@ export class SaesApiClient {
     let buffer = ''
     let fullText = ''
     let contextUsed = false
+    const uiActions: UIAction[] = []
+    const artifacts: ChatArtifact[] = []
+
+    const processLine = (line: string) => {
+      if (!line.trim()) return
+      let data: Record<string, unknown>
+      try {
+        data = JSON.parse(line) as Record<string, unknown>
+      } catch {
+        return
+      }
+      if (data.error) {
+        throw new Error(String(data.error))
+      }
+      if (typeof data.context_used === 'boolean') {
+        contextUsed = data.context_used
+      }
+      if (data.type === 'thought' && data.thought) {
+        callbacks?.onThought?.(String(data.thought))
+      } else if (data.type === 'tool_call' && data.tool) {
+        callbacks?.onToolCall?.(String(data.tool), data.arguments as Record<string, unknown>)
+      } else if (data.type === 'tool_result' && data.tool) {
+        callbacks?.onToolResult?.(
+          String(data.tool),
+          Boolean(data.ok ?? true),
+          String(data.summary || '')
+        )
+      } else if (data.type === 'ui_action' && data.action) {
+        uiActions.push(data.action as UIAction)
+        callbacks?.onUIAction?.(data.action as UIAction)
+      } else if (data.type === 'artifact' && data.artifact) {
+        artifacts.push(data.artifact as ChatArtifact)
+        callbacks?.onArtifact?.(data.artifact as ChatArtifact)
+      } else if (typeof data.token === 'string' && data.token) {
+        fullText += data.token
+        onToken(data.token, contextUsed)
+      }
+    }
 
     while (true) {
       const { done, value } = await reader.read()
@@ -732,28 +785,90 @@ export class SaesApiClient {
       buffer = lines.pop() || ''
 
       for (const line of lines) {
-        if (!line.trim()) continue
-        try {
-          const data = JSON.parse(line)
-          if (data.error) {
-            throw new Error(data.error)
-          }
-          if (typeof data.context_used === 'boolean') {
-            contextUsed = data.context_used
-          }
-          if (data.token) {
-            fullText += data.token
-            onToken(data.token, contextUsed)
-          }
-        } catch (e: unknown) {
-          if (e instanceof Error && e.message !== 'Unexpected end of JSON input') {
-            throw e
-          }
-        }
+        processLine(line)
       }
     }
 
-    return { fullText, contextUsed }
+    buffer += decoder.decode()
+    if (buffer.trim()) {
+      processLine(buffer)
+    }
+
+    return { fullText, contextUsed, uiActions, artifacts }
+  }
+
+  /**
+   * Export a plot/diagram for a stored dataset as PNG, SVG, or PDF
+   */
+  public async exportPlotFromPath(
+    filename: string,
+    params: {
+      plot_type: string
+      export_format: PlotExportFormat
+      metric?: string
+      instance?: string | null
+      scope?: string
+      alpha?: number
+      rope_percent?: number
+      palette?: string | null
+      dpi?: number
+    }
+  ): Promise<Blob> {
+    const formData = new FormData()
+    formData.append('plot_type', params.plot_type)
+    formData.append('export_format', params.export_format)
+    if (params.metric) formData.append('metric', params.metric)
+    if (params.instance) formData.append('instance', params.instance)
+    if (params.scope) formData.append('scope', params.scope)
+    if (params.alpha !== undefined) formData.append('alpha', String(params.alpha))
+    if (params.rope_percent !== undefined)
+      formData.append('rope_percent', String(params.rope_percent))
+    if (params.palette) formData.append('palette', params.palette)
+    if (params.dpi !== undefined) formData.append('dpi', String(params.dpi))
+
+    const res = await this.client.post(
+      `/api/v1/datasets/${encodeURIComponent(filename)}/plots/export`,
+      formData,
+      { responseType: 'blob' }
+    )
+    return res.data
+  }
+
+  /**
+   * Export a plot/diagram from raw CSV content as PNG, SVG, or PDF
+   */
+  public async exportPlotFromCsv(
+    csvContent: string,
+    params: {
+      plot_type: string
+      export_format: PlotExportFormat
+      metric?: string
+      instance?: string | null
+      scope?: string
+      alpha?: number
+      rope_percent?: number
+      palette?: string | null
+      dpi?: number
+    }
+  ): Promise<Blob> {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const formData = new FormData()
+    formData.append('file', blob, 'dataset.csv')
+    formData.append('plot_type', params.plot_type)
+    formData.append('export_format', params.export_format)
+    if (params.metric) formData.append('metric', params.metric)
+    if (params.instance) formData.append('instance', params.instance)
+    if (params.scope) formData.append('scope', params.scope)
+    if (params.alpha !== undefined) formData.append('alpha', String(params.alpha))
+    if (params.rope_percent !== undefined)
+      formData.append('rope_percent', String(params.rope_percent))
+    if (params.palette) formData.append('palette', params.palette)
+    if (params.dpi !== undefined) formData.append('dpi', String(params.dpi))
+
+    const res = await this.client.post('/api/v1/plots/export', formData, {
+      responseType: 'blob',
+    })
+    return res.data
   }
 
   /**

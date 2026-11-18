@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Header } from './components/layout/Header'
 import { DatasetHub } from './components/data/DatasetHub'
 import { DatasetEditor } from './components/data/DatasetEditor'
-import { VisualizeWorkspace } from './components/visualization/VisualizeWorkspace'
+import { VisualizeWorkspace, WorkspaceTab } from './components/visualization/VisualizeWorkspace'
 import { ChatDrawer } from './components/chat/ChatDrawer'
 import { useAnalysis } from './hooks/useAnalysis'
 import { useTauri } from './hooks/useTauri'
 import { useChat } from './hooks/useChat'
+import { StatisticalTestType, TableType, UIAction } from './api/types'
 import { Sparkles, AlertCircle, WifiOff, Loader2 } from 'lucide-react'
 import { MissingColumnWarningModal } from './components/data/MissingColumnWarningModal'
 import { ColumnMappingModal } from './components/data/ColumnMappingModal'
@@ -24,6 +25,10 @@ type AppView = 'hub' | 'fix-issues' | 'editor' | 'visualize'
 
 export function App() {
   const [view, setView] = useState<AppView>('hub')
+  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>('data')
+  const [agentTestType, setAgentTestType] = useState<StatisticalTestType | undefined>(undefined)
+  const [agentTableType, setAgentTableType] = useState<TableType | undefined>(undefined)
+  const [agentMetric, setAgentMetric] = useState<string | undefined>(undefined)
   const [editorOriginView, setEditorOriginView] = useState<'hub' | 'visualize'>('hub')
   const { isTauri, openDesktopFile } = useTauri()
 
@@ -75,6 +80,7 @@ export function App() {
     uploadAndLoadDataset,
     selectDataset,
     deleteDataset,
+    fetchDatasets,
     validateDataset,
     saveDataset,
     updateRecords,
@@ -82,15 +88,57 @@ export function App() {
     checkHealth,
   } = useAnalysis()
 
+  const handleUIAction = useCallback(
+    async (action: UIAction) => {
+      if (action.type === 'refresh_datasets') {
+        await fetchDatasets()
+        return
+      }
+      if (action.type === 'select_dataset' && action.dataset_name) {
+        await selectDataset(action.dataset_name)
+        return
+      }
+      if (action.type === 'navigate_ui') {
+        if (action.alpha !== undefined) {
+          setAlpha(action.alpha)
+        }
+        if (action.dataset_name && action.dataset_name !== selectedDatasetFilename) {
+          await selectDataset(action.dataset_name)
+        }
+        if (action.metric) setAgentMetric(action.metric)
+        if (action.test_type) setAgentTestType(action.test_type)
+        if (action.table_type) setAgentTableType(action.table_type)
+        if (action.tab) {
+          setWorkspaceTab(action.tab as WorkspaceTab)
+        }
+        if (action.view === 'hub' || action.view === 'editor' || action.view === 'visualize') {
+          setView(action.view)
+        }
+      }
+    },
+    [fetchDatasets, selectDataset, setAlpha, selectedDatasetFilename]
+  )
+
   const {
     messages,
     isOpen: isChatOpen,
     setIsOpen: setIsChatOpen,
     isLoading: isChatLoading,
     error: chatError,
+    attachment: chatAttachment,
+    attachFile: attachChatFile,
+    clearAttachment: clearChatAttachment,
     sendMessage: sendChatMessage,
     clearHistory: clearChatHistory,
-  } = useChat(rawCsv, analysis, alpha, selectedDatasetFilename)
+  } = useChat(
+    rawCsv,
+    analysis,
+    alpha,
+    selectedDatasetFilename,
+    view,
+    view === 'visualize' ? workspaceTab : null,
+    handleUIAction
+  )
 
   // Confirm saving dataset with user-chosen name and conflict check
   const handleConfirmSaveDataset = async (finalFilename: string) => {
@@ -200,31 +248,16 @@ export function App() {
     }
   }
 
-  // Switch dataset from header dropdown
-  const handleSelectFromHeader = async (targetFilename: string) => {
-    await selectDataset(targetFilename)
-    const validity = datasetsValidity[targetFilename]
-    if (validity && !validity.isValid) {
-      setEditorOriginView('hub')
-      setView('editor')
-    } else if (view === 'hub') {
-      setView('visualize')
-    }
-  }
-
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary">
       {/* Top Application Header */}
       <Header
         isTauri={isTauri}
         apiOnline={apiOnline}
-        datasets={datasets}
-        selectedDatasetFilename={stagedUpload ? stagedUpload.filename : selectedDatasetFilename}
         onNavigateHub={() => {
           setStagedUpload(null)
           setView('hub')
         }}
-        onSelectDataset={handleSelectFromHeader}
         onRefreshHealth={checkHealth}
         onToggleChat={() => setIsChatOpen(!isChatOpen)}
         isChatOpen={isChatOpen}
@@ -342,6 +375,11 @@ export function App() {
             alpha={alpha}
             isAnalyzing={isAnalyzing}
             apiOnline={apiOnline}
+            activeTab={workspaceTab}
+            onTabChange={setWorkspaceTab}
+            initialTestType={agentTestType}
+            initialTableType={agentTableType}
+            initialMetric={agentMetric}
             onAlphaChange={setAlpha}
             onRunAnalysis={runAnalysis}
             onBackToHub={() => setView('hub')}
@@ -379,6 +417,9 @@ export function App() {
         messages={messages}
         isLoading={isChatLoading}
         error={chatError}
+        attachment={chatAttachment}
+        onAttachFile={attachChatFile}
+        onClearAttachment={clearChatAttachment}
         onSendMessage={sendChatMessage}
         onClearHistory={clearChatHistory}
         onOpenSettings={() => setSettingsModal({ isOpen: true, initialTab: 'ai' })}

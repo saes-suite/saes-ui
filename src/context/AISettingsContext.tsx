@@ -8,7 +8,7 @@ interface AISettingsContextType {
 }
 
 export const DEFAULT_AI_SETTINGS: AISettings = {
-  provider: 'offline',
+  provider: 'local',
   localBaseUrl: 'http://localhost:11434',
   localModel: '',
   openaiApiKey: '',
@@ -30,7 +30,12 @@ export const AISettingsProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
       if (stored) {
-        return { ...DEFAULT_AI_SETTINGS, ...JSON.parse(stored) }
+        const parsed = JSON.parse(stored) as Partial<AISettings> & { provider?: string }
+        const merged = { ...DEFAULT_AI_SETTINGS, ...parsed }
+        if ((merged.provider as string) === 'offline') {
+          merged.provider = 'local'
+        }
+        return merged
       }
     } catch {
       // fallback to defaults on parse error

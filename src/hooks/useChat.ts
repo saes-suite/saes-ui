@@ -1,7 +1,13 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { apiClient } from '../api/client'
-import { AnalysisResponse, CellAnalysis } from '../api/types'
+import { AnalysisResponse, ChatArtifact, ToolCallEvent, UIAction } from '../api/types'
 import { useAISettings } from '../context/AISettingsContext'
+
+export interface ChatAttachment {
+  filename: string
+  content: string
+  sizeBytes: number
+}
 
 export interface ChatMessageItem {
   id: string
@@ -10,30 +16,72 @@ export interface ChatMessageItem {
   timestamp: string
   contextUsed?: boolean
   isStreaming?: boolean
+  attachmentName?: string
+  thoughts?: string[]
+  toolEvents?: ToolCallEvent[]
+  artifacts?: ChatArtifact[]
+}
+
+const CHAT_STORAGE_KEY = 'saes_chat_history_v1'
+
+function createWelcomeMessage(): ChatMessageItem {
+  return {
+    id: 'welcome',
+    role: 'assistant',
+    content: `### Welcome to SAES Statistical Consultant 🔬
+
+I am your embedded AI agent. I can:
+- **Inspect, validate, repair, or create** SAES CSV datasets (drag & drop or attach a CSV below!)
+- **Extract KPIs** and dataset diagnostics across algorithms, instances, and metrics
+- **Test normality & homoscedasticity** and recommend the right statistical tests
+- **Run SAES analyses** (hypothesis tests, rankings, tables, performance profiles, power, reproducibility) and **navigate the UI** for you
+
+Try a quick chip below or attach a dataset to get started!`,
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  }
+}
+
+function loadStoredMessages(): ChatMessageItem[] {
+  try {
+    const raw = window.localStorage.getItem(CHAT_STORAGE_KEY)
+    if (!raw) return [createWelcomeMessage()]
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map((m) => ({
+        ...m,
+        isStreaming: false,
+      })) as ChatMessageItem[]
+    }
+  } catch {
+    // Ignore storage parse errors and fall back to welcome message
+  }
+  return [createWelcomeMessage()]
 }
 
 export function useChat(
   rawCsv: string | null,
-  analysis: AnalysisResponse | null,
+  _analysis: AnalysisResponse | null,
   alpha: number = 0.05,
-  datasetName: string | null = null
+  datasetName: string | null = null,
+  currentView: string | null = null,
+  currentTab: string | null = null,
+  onUIAction?: (action: UIAction) => void
 ) {
   const { settings: aiSettings } = useAISettings()
-  const [messages, setMessages] = useState<ChatMessageItem[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: `### Welcome to SAES Statistical Consultant 🔬
+  const [messages, setMessages] = useState<ChatMessageItem[]>(loadStoredMessages)
 
-I am your embedded AI methodology advisor. I can help interpret hypothesis test results, evaluate normality and homoscedasticity diagnostics, and verify effect sizes.
-
-Try one of the quick suggestions below or ask any question about your algorithmic benchmarks!`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    },
-  ])
+  useEffect(() => {
+    try {
+      const toStore = messages.map((m) => ({ ...m, isStreaming: false }))
+      window.localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(toStore))
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [messages])
   const [isOpen, setIsOpen] = useState<boolean>(false)
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
+  const [attachment, setAttachment] = useState<ChatAttachment | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -42,15 +90,36 @@ Try one of the quick suggestions below or ask any question about your algorithmi
     }
   }, [])
 
+  const attachFile = useCallback(async (file: File) => {
+    const text = await file.text()
+    setAttachment({
+      filename: file.name,
+      content: text,
+      sizeBytes: file.size,
+    })
+  }, [])
+
+  const clearAttachment = useCallback(() => {
+    setAttachment(null)
+  }, [])
+
   const sendMessage = useCallback(
     async (queryText: string) => {
-      if (!queryText.trim()) return
+      if (!queryText.trim() && !attachment) return
+
+      const effectiveQuery =
+        queryText.trim() || `Please inspect the uploaded dataset "${attachment?.filename}".`
+      const currentAttachment = attachment
+      if (currentAttachment) {
+        setAttachment(null)
+      }
 
       const userMsg: ChatMessageItem = {
         id: `user-${Date.now()}`,
         role: 'user',
-        content: queryText.trim(),
+        content: effectiveQuery,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        attachmentName: currentAttachment?.filename,
       }
 
       const botId = `bot-${Date.now()}`
@@ -61,7 +130,15 @@ Try one of the quick suggestions below or ask any question about your algorithmi
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         contextUsed: false,
         isStreaming: true,
+        thoughts: [],
+        toolEvents: [],
+        artifacts: [],
       }
+
+      const historyPayload = messages
+        .filter((m) => m.id !== 'welcome' && m.id !== 'reset' && m.content.trim().length > 0)
+        .slice(-10)
+        .map((m) => ({ role: m.role, content: m.content }))
 
       setMessages((prev) => [...prev, userMsg, botMsg])
       setIsLoading(true)
@@ -76,7 +153,6 @@ Try one of the quick suggestions below or ask any question about your algorithmi
       let contextWasUsed = false
 
       try {
-        // Determine AI parameters from active settings
         let model: string | undefined
         let apiKey: string | undefined
         let baseUrl: string | undefined
@@ -97,9 +173,14 @@ Try one of the quick suggestions below or ask any question about your algorithmi
         }
 
         const chatReq = {
-          query: queryText,
+          query: effectiveQuery,
           dataset_name: datasetName || undefined,
           csv_data: rawCsv || undefined,
+          attached_csv: currentAttachment?.content || undefined,
+          attached_filename: currentAttachment?.filename || undefined,
+          current_view: currentView || undefined,
+          current_tab: currentTab || undefined,
+          history: historyPayload,
           alpha: alpha,
           provider: aiSettings.provider,
           model,
@@ -126,25 +207,102 @@ Try one of the quick suggestions below or ask any question about your algorithmi
                 )
               )
             },
-            abortControllerRef.current.signal
+            abortControllerRef.current.signal,
+            {
+              onThought: (thought) => {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botId
+                      ? {
+                          ...msg,
+                          thoughts: [...(msg.thoughts || []), thought],
+                        }
+                      : msg
+                  )
+                )
+              },
+              onToolCall: (tool, args) => {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botId
+                      ? {
+                          ...msg,
+                          toolEvents: [
+                            ...(msg.toolEvents || []),
+                            { tool, status: 'running', arguments: args },
+                          ],
+                        }
+                      : msg
+                  )
+                )
+              },
+              onToolResult: (tool, ok, summary) => {
+                setMessages((prev) =>
+                  prev.map((msg) => {
+                    if (msg.id !== botId) return msg
+                    const events = [...(msg.toolEvents || [])]
+                    const idx = [...events]
+                      .reverse()
+                      .findIndex((e) => e.tool === tool && e.status === 'running')
+                    const targetIdx = idx >= 0 ? events.length - 1 - idx : -1
+                    const prevArgs = targetIdx >= 0 ? events[targetIdx].arguments : undefined
+                    const updated: ToolCallEvent = {
+                      tool,
+                      status: ok ? 'done' : 'error',
+                      arguments: prevArgs,
+                      summary,
+                    }
+                    if (targetIdx >= 0) {
+                      events[targetIdx] = updated
+                    } else {
+                      events.push(updated)
+                    }
+                    return { ...msg, toolEvents: events }
+                  })
+                )
+              },
+              onUIAction: (action) => {
+                onUIAction?.(action)
+              },
+              onArtifact: (artifact) => {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botId
+                      ? {
+                          ...msg,
+                          artifacts: [...(msg.artifacts || []), artifact],
+                        }
+                      : msg
+                  )
+                )
+              },
+            }
           )
           accumulatedText = res.fullText
           contextWasUsed = res.contextUsed
         } catch {
-          // If streaming failed and nothing was received yet, try non-streaming or offline fallback
           if (!accumulatedText) {
             try {
               const res = await apiClient.chat(chatReq)
               accumulatedText = res.response
               contextWasUsed = res.context_used
+              res.ui_actions?.forEach((act) => onUIAction?.(act))
+              if (res.artifacts && res.artifacts.length > 0) {
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === botId
+                      ? {
+                          ...msg,
+                          artifacts: [...(msg.artifacts || []), ...(res.artifacts || [])],
+                        }
+                      : msg
+                  )
+                )
+              }
             } catch {
-              const localAnswer = generateLocalConsultantResponse(
-                queryText,
-                analysis?.results || [],
-                alpha
-              )
-              accumulatedText = `> 💬 **Placeholder Message** *(Backend API disconnected / service unreachable)*:\n\n${localAnswer}`
-              contextWasUsed = Boolean(analysis && analysis.results.length > 0)
+              accumulatedText =
+                '⚠️ **Backend API unreachable.** Please ensure the SAES backend (`:8000` / `:8001`) and your configured AI provider are running.'
+              contextWasUsed = false
             }
           } else {
             accumulatedText += '\n\n*(Stream disconnected)*'
@@ -159,6 +317,9 @@ Try one of the quick suggestions below or ask any question about your algorithmi
                   content: accumulatedText,
                   contextUsed: contextWasUsed,
                   isStreaming: false,
+                  toolEvents: (msg.toolEvents || []).map((ev) =>
+                    ev.status === 'running' ? { ...ev, status: 'done' } : ev
+                  ),
                 }
               : msg
           )
@@ -169,7 +330,17 @@ Try one of the quick suggestions below or ask any question about your algorithmi
         setIsLoading(false)
       }
     },
-    [rawCsv, analysis, alpha, datasetName, aiSettings]
+    [
+      rawCsv,
+      alpha,
+      datasetName,
+      currentView,
+      currentTab,
+      aiSettings,
+      attachment,
+      messages,
+      onUIAction,
+    ]
   )
 
   const clearHistory = useCallback(() => {
@@ -178,14 +349,8 @@ Try one of the quick suggestions below or ask any question about your algorithmi
       abortControllerRef.current = null
     }
     setIsLoading(false)
-    setMessages([
-      {
-        id: 'reset',
-        role: 'assistant',
-        content: 'Conversation history reset. Ready for your benchmark analysis queries.',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      },
-    ])
+    setAttachment(null)
+    setMessages([createWelcomeMessage()])
   }, [])
 
   return {
@@ -194,51 +359,10 @@ Try one of the quick suggestions below or ask any question about your algorithmi
     setIsOpen,
     isLoading,
     error,
+    attachment,
+    attachFile,
+    clearAttachment,
     sendMessage,
     clearHistory,
   }
-}
-
-/**
- * Intelligent local response generator when offline or in standalone mode
- */
-function generateLocalConsultantResponse(
-  query: string,
-  cells: CellAnalysis[],
-  alpha: number
-): string {
-  const lower = query.toLowerCase()
-
-  if (lower.includes('summarize') || lower.includes('findings') || lower.includes('summary')) {
-    if (cells.length === 0) {
-      return `### Benchmark Summary\n\nNo analysis results are currently loaded. Please run **Run Automated Analysis** in the Workbench tab first.`
-    }
-
-    const sigCount = cells.filter((c) => c.is_significant).length
-    const total = cells.length
-    return (
-      `### 📊 Summary of Experimental Findings\n\n- **Evaluated Experimental Cells**: ${total}\n- **Statistically Significant Differences**: **${sigCount} / ${total}** at significance level $\\alpha = ${alpha}$.\n\n#### Key Observations:\n` +
-      cells
-        .map(
-          (c) =>
-            `- **${c.instance} [${c.metric}]**: ${c.test_name} produced test statistic $t = ${c.statistic.toFixed(3)}$ ($p = ${c.p_value < 0.001 ? '< 0.001' : c.p_value.toFixed(4)}$). Effect size: **${c.effect_size_name}** = $${c.effect_size_value !== null ? c.effect_size_value.toFixed(3) : 'N/A'}$ (*${c.effect_size_magnitude || 'unclassified'}* magnitude).`
-        )
-        .join('\n') +
-      `\n\n> **Methodological Note:** Rejection of the null hypothesis indicates significant distributional divergence between algorithms, backed by ${sigCount > 0 ? 'substantial' : 'minimal'} practical effect sizes.`
-    )
-  }
-
-  if (lower.includes('welch') || lower.includes('why was welch')) {
-    return `### 🔍 Why Welch's Test Was Selected\n\nIn stochastic algorithm comparisons, the assumption of **homoscedasticity** (equal variances across stochastic runs) is frequently violated because metaheuristics exhibit different convergence dynamics.\n\nAccording to SAES statistical decision rules:\n1. **Normality** is assessed via Shapiro-Wilk ($p > ${alpha}$).\n2. **Homogeneity of Variance** is assessed via Levene's test.\n3. When variance equality is violated ($p < ${alpha}$), standard Student's $t$-test exhibits an inflated Type I error rate (often exceeding $10\\%$ when nominal $\\alpha = 5\\%$).\n4. **Welch's $t$-test** employs the Welch–Satterthwaite equation for degrees of freedom:\n\n$$\\nu \\approx \\frac{\\left(\\frac{s_1^2}{n_1} + \\frac{s_2^2}{n_2}\\right)^2}{\\frac{(s_1^2/n_1)^2}{n_1 - 1} + \\frac{(s_2^2/n_2)^2}{n_2 - 1}}$$\n\nThis guarantees exact Type I error control under heteroscedasticity without loss of statistical power.`
-  }
-
-  if (lower.includes('effect size') || lower.includes('cohen') || lower.includes('eta')) {
-    return `### 📐 Effect Size Interpretation Guide\n\nStatistical significance ($p < \\alpha$) confirms that observed differences are unlikely due to random seed variation alone, but does **not** convey the practical magnitude of algorithmic advantage.\n\n#### Benchmarks & Standards:\n- **Cohen's $d$** (for pairwise 2-sample comparisons):\n  - $|d| < 0.2$: **Negligible** difference\n  - $0.2 \\le |d| < 0.5$: **Small** effect\n  - $0.5 \\le |d| < 0.8$: **Medium** effect\n  - $|d| \\ge 0.8$: **Large** effect\n\n- **Eta-Squared ($\\eta^2$)** (for ANOVA multi-algorithm omnibus):\n  - $\\eta^2 < 0.01$: Negligible\n  - $0.01 \\le \\eta^2 < 0.06$: Small proportion of total variance explained\n  - $0.06 \\le \\eta^2 < 0.14$: Medium effect\n  - $\\eta^2 \\ge 0.14$: Large effect\n\nIn publication tables, always report both the exact test statistic with degrees of freedom and the standardized effect size.`
-  }
-
-  if (lower.includes('assumption') || lower.includes('violation')) {
-    return `### ⚠️ Diagnostic Assessment of Statistical Assumptions\n\nSAES validates three critical foundations before selecting hypothesis tests:\n\n1. **Independence of Replicates**: Ensured by using independent pseudo-random seed sequences across runs ($run\\_id = 0 \\dots N-1$).\n2. **Normality of Metrics**: Evaluated for each algorithm group via Shapiro-Wilk test. When sample size per group $N \\ge 30$, Central Limit Theorem (CLT) stabilizes the distribution of the mean, but nonparametric rank-sum alternatives are recommended if skewness is severe.\n3. **Homoscedasticity (Equal Variances)**: Tested via Levene's Brown-Forsythe test. Violations automatically steer the SAES pipeline to **Welch's $t$-test** or **Welch's ANOVA**.`
-  }
-
-  return `### 💡 Scientific Consultation Note\n\nRegarding your question: *"${query}"*\n\nIn stochastic algorithm evaluation (CEC, GECCO, IEEE TEVC guidelines):\n- Multi-run experiments require rigorous non-overlapping confidence intervals or paired/independent hypothesis tests.\n- With current significance threshold set at $\\alpha = ${alpha}$, p-values below this threshold demonstrate statistical divergence.\n- Feel free to ask more specific questions about assumption checks, post-hoc corrections, or figure generation parameters!`
 }

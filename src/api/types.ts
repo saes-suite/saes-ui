@@ -513,7 +513,7 @@ export interface DatasetDetail {
   content: string
 }
 
-export type AIProvider = 'local' | 'openai' | 'anthropic' | 'gemini' | 'offline'
+export type AIProvider = 'local' | 'openai' | 'anthropic' | 'gemini'
 
 export interface AISettings {
   provider: AIProvider
@@ -528,10 +528,38 @@ export interface AISettings {
   geminiModel: string
 }
 
+export interface ChatHistoryItem {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface UIAction {
+  type: 'navigate_ui' | 'select_dataset' | 'refresh_datasets' | string
+  view?: 'hub' | 'editor' | 'fix-issues' | 'visualize' | string
+  tab?: 'data' | 'stats' | 'charts' | 'profiles' | 'power' | 'reproducibility' | string
+  dataset_name?: string
+  alpha?: number
+  metric?: string
+  test_type?: StatisticalTestType
+  table_type?: TableType
+}
+
+export interface ToolCallEvent {
+  tool: string
+  status: 'running' | 'done' | 'error'
+  arguments?: Record<string, unknown>
+  summary?: string
+}
+
 export interface ChatRequest {
   query: string
   dataset_name?: string | null
   csv_data?: string | null
+  attached_csv?: string | null
+  attached_filename?: string | null
+  current_view?: string | null
+  current_tab?: string | null
+  history?: ChatHistoryItem[]
   alpha?: number
   provider?: AIProvider | string
   model?: string | null
@@ -539,9 +567,63 @@ export interface ChatRequest {
   base_url?: string | null
 }
 
+export type PlotExportFormat = 'png' | 'svg' | 'pdf'
+
+export interface ChatPlotArtifact {
+  id: string
+  kind: 'plot'
+  plot_type: string
+  title: string
+  subtitle?: string
+  filename: string
+  metric: string
+  instance?: string | null
+  scope?: string
+  alpha?: number
+  rope_percent?: number
+  palette?: string | null
+  plotly_figure?: {
+    data: Array<Record<string, unknown>>
+    layout?: Record<string, unknown>
+  }
+  image_data_url?: string
+  download_formats?: PlotExportFormat[]
+}
+
+export interface ChatTableArtifact {
+  id: string
+  kind: 'table'
+  title: string
+  subtitle?: string
+  filename: string
+  metric: string
+  table_type: string
+  test_type?: string
+  posthoc_correction?: string
+  reference_algorithm?: string | null
+  alpha?: number
+  markdown: string
+  csv_content?: string
+  download_formats?: TableExportFormat[]
+}
+
+export interface ChatImageArtifact {
+  id: string
+  kind: 'image'
+  title: string
+  subtitle?: string
+  image_data_url: string
+  filename?: string
+}
+
+export type ChatArtifact = ChatPlotArtifact | ChatTableArtifact | ChatImageArtifact
+
 export interface ChatResponse {
   response: string
   context_used: boolean
+  ui_actions?: UIAction[]
+  tool_calls?: Array<{ tool: string; ok: boolean; summary?: string }>
+  artifacts?: ChatArtifact[]
 }
 
 export interface LocalModelsResponse {
