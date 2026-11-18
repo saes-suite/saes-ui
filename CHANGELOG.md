@@ -8,11 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+
 - Fixed overlapping legend and X-axis title collision in Dolan-Moré Step Profile Curve $\rho(\tau)$ (`PerformanceProfilesWorkspace.tsx`) and Power Curves (`PowerAnalysisWorkspace.tsx`) by establishing top-anchored legend positioning (`yanchor: 'top'`), adding axis title standoff distance, dynamically expanding bottom margins and container height proportional to wrapped algorithm legend rows, preventing horizontal legends from encroaching onto the X-axis label.
 - Fixed dropdown chevron/arrow alignment in `SelectDropdown` and native select inputs across the UI by expanding right padding (`pr-3.5` / `pr-4`) and removing asymmetric text margins, preventing the caret line from appearing crammed against the right rounded border.
 - Fixed oversized and displaced `Evaluation Metric` dropdown in Statistical Workbench (`StatsTable.tsx`) by converting the primary controls row into a proportional 12-column layout (`xl:col-span-2` for metric), eliminating excessive whitespace separation between metric text and controls.
 
 ### Added
+
 - Inline rich artifact rendering in the SAES Chatbot (`ChatArtifactCard.tsx`, `ChatMessage.tsx`, `useChat.ts`): displays interactive Plotly diagrams, static PNG images, and statistical tables directly inside assistant messages, with full-size lightbox inspection, interactive/image view toggle, and direct download buttons (PNG 300 DPI, SVG, PDF for plots/diagrams; CSV, LaTeX, Markdown, HTML, PDF, DOCX for tables).
 - Typed `ChatArtifact` schemas and `exportPlotFromPath` / `exportPlotFromCsv` API client methods in `src/api/types.ts` and `src/api/client.ts`.
 - Three new specialized scientific workflow tabs in `VisualizeWorkspace` (`Performance Profiles`, `Power & Design`, `Reproducibility`):
@@ -36,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the redundant top-bar "Run Statistical Analysis" button from `VisualizeWorkspace.tsx` in favor of instant on-demand calculation in the Statistical Workbench.
 
 ### Changed
+
 - Ergonomics and visual layout overhaul for LaTeX and PDF export dialogs and statistical workbench:
   - Fixed visual text clipping and button overflow across PDF presentation and LaTeX configuration options (`Highlight Winners`, `Zebra Striping`, `Booktabs`, `Standard`, and `Scientific`).
   - Added reactive live auto-execution to Vector PDF preview in `StatsTable.tsx`: modifying any presentation property (theme palette, orientation, font scale, winner highlighting, zebra striping, grid border style, or debounced title/caption) automatically re-renders the ReportLab vector PDF in real time with an interactive loading overlay and status badge.
@@ -43,3 +46,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reordered workspace tabs to follow the scientific benchmark workflow: Step 1 `Data & Assumptions`, Step 2 `Statistical Workbench`, Step 3 `Interactive Visualizations`.
 - Updated dataset editor navigation origin tracking so returning from "Edit Data" inside the analysis workspace returns to the workspace (`Back to Analysis`) rather than resetting to the dataset hub.
 - Removed client-side statistical approximations from `src/lib/stats.ts` and `ChartWorkbench.tsx`; all hypothesis testing, assumptions, group summaries, and multi-algorithm rankings are now computed exclusively by the `saes` Python backend.
+
+## [Released]
