@@ -14,6 +14,7 @@ import { ColumnMappingModal } from './components/data/ColumnMappingModal'
 import { ProblematicRowsFixerView } from './components/data/ProblematicRowsFixerView'
 import { SaveDatasetModal } from './components/data/SaveDatasetModal'
 import { SettingsModal } from './components/layout/SettingsModal'
+import { GuideView } from './components/guide/GuideView'
 import {
   inspectDatasetStructure,
   applyColumnMapping,
@@ -21,7 +22,7 @@ import {
   DatasetStructureResult,
 } from './lib/datasetInspection'
 
-type AppView = 'hub' | 'fix-issues' | 'editor' | 'visualize'
+type AppView = 'hub' | 'fix-issues' | 'editor' | 'visualize' | 'guide'
 
 export function App() {
   const [view, setView] = useState<AppView>('hub')
@@ -119,6 +120,8 @@ export function App() {
     [fetchDatasets, selectDataset, setAlpha, selectedDatasetFilename]
   )
 
+  const isDatasetView = view === 'visualize' || view === 'editor'
+
   const {
     messages,
     isOpen: isChatOpen,
@@ -131,10 +134,10 @@ export function App() {
     sendMessage: sendChatMessage,
     clearHistory: clearChatHistory,
   } = useChat(
-    rawCsv,
-    analysis,
+    isDatasetView ? rawCsv : null,
+    isDatasetView ? analysis : null,
     alpha,
-    selectedDatasetFilename,
+    isDatasetView ? selectedDatasetFilename : null,
     view,
     view === 'visualize' ? workspaceTab : null,
     handleUIAction
@@ -258,6 +261,11 @@ export function App() {
           setStagedUpload(null)
           setView('hub')
         }}
+        onNavigateGuide={() => {
+          setStagedUpload(null)
+          setView(view === 'guide' ? 'hub' : 'guide')
+        }}
+        isGuideActive={view === 'guide'}
         onRefreshHealth={checkHealth}
         onToggleChat={() => setIsChatOpen(!isChatOpen)}
         isChatOpen={isChatOpen}
@@ -314,6 +322,21 @@ export function App() {
             onVisualize={handleVisualize}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onOpenGuide={() => setView('guide')}
+          />
+        )}
+
+        {/* VIEW 1B: INTERACTIVE GUIDE & TUTORIAL */}
+        {view === 'guide' && (
+          <GuideView
+            apiOnline={apiOnline}
+            onBackToHub={() => setView('hub')}
+            onTryExample={async (csvContent, exampleFilename) => {
+              await uploadAndLoadDataset(csvContent, exampleFilename)
+              setWorkspaceTab('data')
+              setView('visualize')
+            }}
+            onOpenChat={() => setIsChatOpen(true)}
           />
         )}
 

@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added an interactive **Guide & Tutorial** section (`GuideView.tsx`, `GuideVisuals.tsx`, `GuideSampleData.ts`) accessible from `Header.tsx` and `DatasetHub.tsx`, featuring a visual end-to-end workflow diagram, interactive 6-column tidy long-format CSV schema inspector, Wide-vs-Long format diagram, downloadable starter CSV template, 3 one-click runnable domain examples (Metaheuristics, Multi-Metric ML Classification, Multi-Objective Swarm Intelligence), visual previews of all statistical/chart/profile/power modules, and Python API / AI Consultant guides.
 - Added `SAES-AI API Server URL` configuration, `/health` test button, and `saes_ai_url` persistence in `SettingsModal.tsx` (`client.ts` `getAiHealth()` / `resetAiBaseUrl()`), and updated server launch commands to `saesV2` and `saes-ai`.
+
+### Changed
+
+- Updated `ChatDrawer.tsx`, `QuickChips.tsx`, and `useChat.ts` for a natural, general-purpose conversational assistant, and scoped `App.tsx` chat dataset context to active dataset views (`visualize` and `editor`) so Hub/Guide chats do not send stale dataset state.
 
 ### Fixed
 

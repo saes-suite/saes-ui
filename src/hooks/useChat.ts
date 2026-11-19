@@ -28,15 +28,11 @@ function createWelcomeMessage(): ChatMessageItem {
   return {
     id: 'welcome',
     role: 'assistant',
-    content: `### Welcome to SAES Statistical Consultant 🔬
+    content: `### Hi! I'm the SAES Assistant 👋
 
-I am your embedded AI agent. I can:
-- **Inspect, validate, repair, or create** SAES CSV datasets (drag & drop or attach a CSV below!)
-- **Extract KPIs** and dataset diagnostics across algorithms, instances, and metrics
-- **Test normality & homoscedasticity** and recommend the right statistical tests
-- **Run SAES analyses** (hypothesis tests, rankings, tables, performance profiles, power, reproducibility) and **navigate the UI** for you
+Ask me anything—whether it's a general question about statistics, stochastic algorithms, or experimental design, or if you'd like help inspecting a CSV, generating plots and tables, or running analyses.
 
-Try a quick chip below or attach a dataset to get started!`,
+You can type a message below or attach a CSV file whenever you need.`,
     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
   }
 }

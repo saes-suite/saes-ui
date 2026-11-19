@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { AppWindow, Globe, Moon, Settings, Sun, ZoomIn, ZoomOut } from 'lucide-react'
+import { AppWindow, BookOpen, Globe, Moon, Settings, Sun, ZoomIn, ZoomOut } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { SettingsModal } from './SettingsModal'
@@ -9,6 +9,8 @@ interface HeaderProps {
   isTauri: boolean
   apiOnline: boolean
   onNavigateHub: () => void
+  onNavigateGuide?: () => void
+  isGuideActive?: boolean
   onRefreshHealth: () => void
   onToggleChat?: () => void
   isChatOpen?: boolean
@@ -19,6 +21,8 @@ export const Header: React.FC<HeaderProps> = ({
   isTauri,
   apiOnline,
   onNavigateHub,
+  onNavigateGuide,
+  isGuideActive = false,
   onRefreshHealth,
   onOpenSettings,
 }) => {
@@ -97,8 +101,24 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
-          {/* Right: Zoom, Server Health, Settings */}
+          {/* Right: Guide, Zoom, Server Health, Settings */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {onNavigateGuide && (
+              <Button
+                type="button"
+                variant={isGuideActive ? 'default' : 'outline'}
+                size="sm"
+                onClick={onNavigateGuide}
+                className={`h-9 gap-1.5 text-xs font-medium cursor-pointer shadow-xs shrink-0 ${
+                  isGuideActive ? '' : 'border-border bg-card hover:bg-muted/50 text-foreground'
+                }`}
+                title="Open SAES Data Format & Interactive Tutorial"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Guide &amp; Tutorial</span>
+              </Button>
+            )}
+
             {/* Zoom Range Slider Control */}
             <div
               className="flex items-center gap-1 sm:gap-1.5 rounded-lg border border-border bg-card px-2 sm:px-2.5 shadow-xs h-9 shrink-0 select-none"
