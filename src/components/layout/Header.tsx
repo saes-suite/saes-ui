@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { AppWindow, Globe, Moon, Settings, Sun, ZoomIn, ZoomOut } from 'lucide-react'
+import { AppWindow, BookOpen, Globe, Moon, Settings, Sun, ZoomIn, ZoomOut } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { SettingsModal } from './SettingsModal'
@@ -9,6 +9,8 @@ interface HeaderProps {
   isTauri: boolean
   apiOnline: boolean
   onNavigateHub: () => void
+  onNavigateGuide?: () => void
+  isGuideActive?: boolean
   onRefreshHealth: () => void
   onToggleChat?: () => void
   isChatOpen?: boolean
@@ -19,6 +21,8 @@ export const Header: React.FC<HeaderProps> = ({
   isTauri,
   apiOnline,
   onNavigateHub,
+  onNavigateGuide,
+  isGuideActive = false,
   onRefreshHealth,
   onOpenSettings,
 }) => {
@@ -74,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
                     SAES
                   </span>
                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono font-medium">
-                    v0.1.0
+                    v{__APP_VERSION__}
                   </span>
                   {/* Runtime Badge */}
                   {isTauri ? (
@@ -97,8 +101,24 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
 
-          {/* Right: Zoom, Server Health, Settings */}
+          {/* Right: Guide, Zoom, Server Health, Settings */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {onNavigateGuide && (
+              <Button
+                type="button"
+                variant={isGuideActive ? 'default' : 'outline'}
+                size="sm"
+                onClick={onNavigateGuide}
+                className={`h-9 gap-1.5 text-xs font-medium cursor-pointer shadow-xs shrink-0 ${
+                  isGuideActive ? '' : 'border-border bg-card hover:bg-muted/50 text-foreground'
+                }`}
+                title="Open SAES Data Format & Interactive Tutorial"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Guide &amp; Tutorial</span>
+              </Button>
+            )}
+
             {/* Zoom Range Slider Control */}
             <div
               className="flex items-center gap-1 sm:gap-1.5 rounded-lg border border-border bg-card px-2 sm:px-2.5 shadow-xs h-9 shrink-0 select-none"
@@ -198,30 +218,23 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </Button>
 
-            {/* Server Status Pill & Settings modal trigger */}
+            {/* Settings modal trigger with API status color */}
             <button
               type="button"
-              onClick={() => (onOpenSettings ? onOpenSettings('server') : setIsSettingsOpen(true))}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs border transition-colors shadow-xs h-9 cursor-pointer ${
+              onClick={() => (onOpenSettings ? onOpenSettings('ai') : setIsSettingsOpen(true))}
+              className={`flex items-center justify-center w-9 h-9 rounded-md border transition-colors shadow-xs cursor-pointer ${
                 apiOnline
-                  ? 'border-border bg-card hover:bg-muted/50 text-foreground'
-                  : 'border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-300 dark:hover:bg-rose-900/50'
+                  ? 'border-emerald-200 bg-emerald-50/70 text-emerald-600 hover:bg-emerald-100/70 dark:border-emerald-800/70 dark:bg-emerald-950/40 dark:text-emerald-400 dark:hover:bg-emerald-900/50'
+                  : 'border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-400 dark:hover:bg-rose-900/50'
               }`}
+              aria-label={apiOnline ? 'API Connected — Settings' : 'API Disconnected — Settings'}
               title={
                 apiOnline
-                  ? 'API Connected — Click to view settings'
-                  : 'API Disconnected — Click to configure API connection'
+                  ? 'API Connected — Click to open settings'
+                  : 'API Disconnected — Click to open settings'
               }
             >
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  apiOnline ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'
-                }`}
-              />
-              <span className="text-[11px] font-medium hidden lg:inline">
-                {apiOnline ? 'API Connected' : 'API Disconnected'}
-              </span>
-              <Settings className="w-3.5 h-3.5 text-muted-foreground ml-0.5" />
+              <Settings className={`w-4 h-4 ${apiOnline ? '' : 'animate-pulse'}`} />
             </button>
           </div>
         </div>

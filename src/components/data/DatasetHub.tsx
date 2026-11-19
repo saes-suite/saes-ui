@@ -11,6 +11,7 @@ import {
   Clock,
   HardDrive,
   CheckCircle2,
+  BookOpen,
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import {
@@ -37,6 +38,7 @@ interface DatasetHubProps {
   onVisualize: (filename: string) => void
   onEdit: (filename: string) => void
   onDelete: (filename: string) => void
+  onOpenGuide?: () => void
 }
 
 export const DatasetHub: React.FC<DatasetHubProps> = ({
@@ -50,6 +52,7 @@ export const DatasetHub: React.FC<DatasetHubProps> = ({
   onVisualize,
   onEdit,
   onDelete,
+  onOpenGuide,
 }) => {
   const [isDragging, setIsDragging] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -160,6 +163,18 @@ export const DatasetHub: React.FC<DatasetHubProps> = ({
             statistical analysis and interactive visualizations.
           </p>
         </div>
+        {onOpenGuide && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onOpenGuide}
+            className="gap-1.5 text-xs h-9 shrink-0 bg-card hover:bg-muted/60"
+          >
+            <BookOpen className="w-3.5 h-3.5 text-primary" />
+            Data Format &amp; Tutorial
+          </Button>
+        )}
       </div>
 
       {/* Hidden file input */}

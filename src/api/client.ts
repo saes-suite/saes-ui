@@ -22,14 +22,26 @@ import {
   ValidationResponse,
 } from './types'
 
+const isViteDev = (): boolean =>
+  Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
+
 export class SaesApiClient {
   private client: AxiosInstance
+  private aiClient: AxiosInstance
   private baseUrl: string
+  private aiBaseUrl: string
+  private hasExplicitAiBaseUrl: boolean
 
-  constructor(baseUrl: string = 'http://127.0.0.1:8060') {
+  constructor(baseUrl: string = 'http://127.0.0.1:8060', aiBaseUrl?: string) {
     this.baseUrl = baseUrl
+    this.hasExplicitAiBaseUrl = Boolean(aiBaseUrl)
+    this.aiBaseUrl = aiBaseUrl || (isViteDev() ? 'http://127.0.0.1:8070' : baseUrl)
     this.client = axios.create({
       baseURL: this.baseUrl,
+      timeout: 30000,
+    })
+    this.aiClient = axios.create({
+      baseURL: this.aiBaseUrl,
       timeout: 30000,
     })
   }
@@ -37,10 +49,30 @@ export class SaesApiClient {
   public setBaseUrl(newUrl: string): void {
     this.baseUrl = newUrl
     this.client.defaults.baseURL = newUrl
+    if (!this.hasExplicitAiBaseUrl && !isViteDev()) {
+      this.aiBaseUrl = newUrl
+      this.aiClient.defaults.baseURL = newUrl
+    }
   }
 
   public getBaseUrl(): string {
     return this.baseUrl
+  }
+
+  public setAiBaseUrl(newUrl: string): void {
+    this.hasExplicitAiBaseUrl = true
+    this.aiBaseUrl = newUrl
+    this.aiClient.defaults.baseURL = newUrl
+  }
+
+  public resetAiBaseUrl(): void {
+    this.hasExplicitAiBaseUrl = false
+    this.aiBaseUrl = isViteDev() ? 'http://127.0.0.1:8070' : this.baseUrl
+    this.aiClient.defaults.baseURL = this.aiBaseUrl
+  }
+
+  public getAiBaseUrl(): string {
+    return this.aiBaseUrl
   }
 
   /**
@@ -48,6 +80,14 @@ export class SaesApiClient {
    */
   public async getHealth(): Promise<HealthResponse> {
     const res = await this.client.get<HealthResponse>('/health')
+    return res.data
+  }
+
+  /**
+   * Check SAES-AI API health status
+   */
+  public async getAiHealth(): Promise<HealthResponse> {
+    const res = await this.aiClient.get<HealthResponse>('/health')
     return res.data
   }
 
@@ -686,7 +726,7 @@ export class SaesApiClient {
    * Send question to statistical chat assistant via POST /api/v1/chat
    */
   public async chat(req: ChatRequest): Promise<ChatResponse> {
-    const res = await this.client.post<ChatResponse>('/api/v1/chat', req, {
+    const res = await this.aiClient.post<ChatResponse>('/api/v1/chat', req, {
       headers: {
         'Content-Type': 'application/json',
       },
@@ -714,7 +754,7 @@ export class SaesApiClient {
     uiActions: UIAction[]
     artifacts: ChatArtifact[]
   }> {
-    const targetUrl = `${this.getBaseUrl().replace(/\/+$/, '')}/api/v1/chat/stream`
+    const targetUrl = `${this.getAiBaseUrl().replace(/\/+$/, '')}/api/v1/chat/stream`
     const res = await fetch(targetUrl, {
       method: 'POST',
       headers: {
@@ -876,7 +916,7 @@ export class SaesApiClient {
    */
   public async fetchLocalModels(baseUrl?: string): Promise<string[]> {
     try {
-      const res = await this.client.get<{ models: string[]; status: string }>(
+      const res = await this.aiClient.get<{ models: string[]; status: string }>(
         '/api/v1/chat/models/local',
         {
           params: baseUrl ? { base_url: baseUrl } : undefined,
@@ -897,7 +937,7 @@ export class SaesApiClient {
     apiKey?: string,
     baseUrl?: string
   ): Promise<ProviderProbeResponse> {
-    const res = await this.client.post<ProviderProbeResponse>('/api/v1/chat/probe', {
+    const res = await this.aiClient.post<ProviderProbeResponse>('/api/v1/chat/probe', {
       provider,
       api_key: apiKey || undefined,
       base_url: baseUrl || undefined,
@@ -909,7 +949,7 @@ export class SaesApiClient {
    * Attempt to start local Ollama server daemon
    */
   public async startOllama(): Promise<{ started: boolean }> {
-    const res = await this.client.post<{ started: boolean }>('/api/v1/chat/ollama/start')
+    const res = await this.aiClient.post<{ started: boolean }>('/api/v1/chat/ollama/start')
     return res.data
   }
 
@@ -920,7 +960,7 @@ export class SaesApiClient {
     name: string,
     baseUrl?: string
   ): Promise<{ status: string; message: string }> {
-    const res = await this.client.post<{ status: string; message: string }>(
+    const res = await this.aiClient.post<{ status: string; message: string }>(
       '/api/v1/chat/ollama/pull',
       {
         name,
@@ -946,7 +986,7 @@ export class SaesApiClient {
       percent?: number
     }) => void
   ): Promise<{ status: string; message: string }> {
-    const targetUrl = `${this.getBaseUrl().replace(/\/+$/, '')}/api/v1/chat/ollama/pull/stream`
+    const targetUrl = `${this.getAiBaseUrl().replace(/\/+$/, '')}/api/v1/chat/ollama/pull/stream`
     const res = await fetch(targetUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1012,4 +1052,8 @@ export class SaesApiClient {
 
 // Global default instance with configurable base url from localStorage if present
 const storedBaseUrl = typeof window !== 'undefined' ? localStorage.getItem('saes_api_url') : null
-export const apiClient = new SaesApiClient(storedBaseUrl || 'http://127.0.0.1:8060')
+const storedAiBaseUrl = typeof window !== 'undefined' ? localStorage.getItem('saes_ai_url') : null
+export const apiClient = new SaesApiClient(
+  storedBaseUrl || 'http://127.0.0.1:8060',
+  storedAiBaseUrl || undefined
+)

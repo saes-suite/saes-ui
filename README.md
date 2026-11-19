@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="public/saes-logo.svg" alt="SAES Logo" width="120" />
+  <img src="public/saes-logo.svg" alt="SAES Logo" width="128" />
 </p>
 
-# SAES-UI — Modern Dual-Target Web & Tauri Desktop Application
+# SAES-UI — Web Frontend for SAES
 
 > **Stochastic Algorithm Evaluation Suite (SAES)**  
 > Publication-grade interactive workbench for automated statistical analysis, hypothesis testing, diagnostic validation, and data visualization.
@@ -16,11 +16,11 @@
 1. **Standalone Single Page Application (Web SPA)**:
    - Zero-install, browser-based execution.
    - HTML5 drag-and-drop CSV parser with instant schema inspection.
-   - Communicates with `saes` FastAPI REST server (`http://127.0.0.1:8060`).
+   - Communicates with `saesV2` FastAPI REST server (`http://127.0.0.1:8060`) and `saes-ai` (`http://127.0.0.1:8070`).
    - Client-side fallback engine enabling fully interactive exploration even in offline demo mode.
 
-2. **Native Lightweight Desktop Application (Tauri v2)**:
-   - Wrapped with **Tauri v2** producing an ultra-lightweight (<15 MB) native binary (`.app` / `.dmg` on macOS, `.exe` on Windows, `.deb` / `.AppImage` on Linux).
+2. **Native Lightweight Desktop Application (Umbrella Tauri v2)**:
+   - Bundled by the umbrella repository's **Tauri v2** wrapper (`../src-tauri/`) producing a native binary (`.app` / `.dmg` on macOS, `.exe` on Windows, `.deb` / `.AppImage` on Linux) together with the unified `saes-backend` sidecar.
    - Native OS file picker dialogs via `@tauri-apps/plugin-dialog`.
    - Native filesystem access via `@tauri-apps/plugin-fs`.
    - System window dimensions (1400x900 default, 1280x800 minimum) with desktop shell integration.
@@ -35,7 +35,7 @@
 - **Data Tables**: [`@tanstack/react-table`](https://tanstack.com/table) for sortable, filterable, and paginated benchmark data inspection.
 - **Charts & Plotting**: [`plotly.js-dist-min`](https://plotly.com/javascript/) for publication-quality distribution plots (boxplots, violins, bar charts with 95% CIs, ECDFs, scatter runs) with customizable scientific palettes and 300 DPI exports (PNG, SVG, PDF).
 - **Math & AI Chatbot**: `react-markdown` + `remark-math` + `rehype-katex` + KaTeX for rendering mathematical formulas ($p < 0.001$, $F(2, 27) = 14.8$, effect sizes $\eta^2$ and Cohen's $d$).
-- **State & Data Fetching**: TanStack Query (`@tanstack/react-query`) and Axios typed client communicating with `saes-api`.
+- **State & Data Fetching**: TanStack Query (`@tanstack/react-query`) and Axios typed client communicating with `saesV2` (`:8060`) and `saes-ai` (`:8070`).
 
 ---
 
@@ -46,18 +46,11 @@ saes-ui/
 ├── .github/
 │   └── workflows/
 │       ├── test.yml             # Linting, TypeScript typechecking & web build
-│       └── release.yml          # Tauri multi-platform desktop release builder
-├── src-tauri/                   # Tauri v2 native desktop shell (Rust)
-│   ├── Cargo.toml               # Rust dependencies (tauri v2, dialog, fs)
-│   ├── tauri.conf.json          # App metadata, bundle identifier, window sizes
-│   ├── capabilities/            # Tauri v2 permissions & security policies
-│   ├── icons/                   # Multi-platform application icons
-│   └── src/
-│       └── main.rs              # Desktop shell entry point
+│       └── release.yml          # Automated changelog & version release stamp
 ├── src/
-│   ├── api/                     # Typed client for saes-api endpoints
+│   ├── api/                     # Typed client for saesV2 & saes-ai endpoints
 │   │   ├── client.ts            # Axios HTTP client with connection configurator
-│   │   └── types.ts             # TypeScript interfaces mirroring saes schemas
+│   │   └── types.ts             # TypeScript interfaces mirroring backend schemas
 │   ├── components/
 │   │   ├── layout/              # Header, Sidebar, Navigation, SettingsModal
 │   │   ├── data/                # FileUploader, ValidationReport, DataTable
@@ -92,42 +85,39 @@ make install
 # 2. Launch web development server (Vite at http://localhost:1420)
 make dev
 
-# 3. Launch native Tauri desktop app in dev mode
-make desktop
-
-# 4. Build production static web SPA into dist/
+# 3. Build production static web SPA into dist/
 make build-web
 
-# 5. Build native desktop installer (.app / .dmg / .exe)
-make build-desktop
-
-# 6. Run ESLint checks
+# 4. Run ESLint checks
 make lint
 
-# 7. Run TypeScript strict typechecking (tsc --noEmit)
+# 5. Run TypeScript strict typechecking (tsc --noEmit)
 make typecheck
 
-# 8. Run CI quality gate (lint + typecheck)
+# 6. Run CI quality gate (lint + typecheck)
 make ci
 ```
 
+> To launch or build the native Tauri desktop app, run `make start-desktop` or `make build-desktop` from the umbrella root (`../`).
+
 ---
 
-## 🔌 API Integration with `saes.server`
+## 🔌 API Integration with `saesV2.server` & `saes-ai`
 
-`saes-ui` interacts seamlessly with the FastAPI server in `../saes` across four core REST endpoints:
+`saes-ui` interacts with the FastAPI servers in `../saesV2` (`:8060`) and `../saes-ai` (`:8070`, or mounted on `:8060` in the desktop sidecar):
 
-| Endpoint | Method | Payload | Description |
+| Endpoint | Method | Service | Description |
 |---|---|---|---|
-| `/health` | `GET` | — | Verifies service status and API version. |
-| `/api/v1/validate` | `POST` | `multipart/form-data` (`file`) | Validates CSV against required 6-column schema and reports structural issues. |
-| `/api/v1/analyze` | `POST` | `multipart/form-data` (`file`, `alpha`) | Executes automated hypothesis testing, Welch/Student decisions, ANOVA, and effect sizes. |
-| `/api/v1/chat` | `POST` | `application/json` (`query`, `csv_data`, `alpha`) | Queries the embedded AI statistical consultant with dataset context. |
+| `/health` | `GET` | `saesV2` / `saes-ai` | Verifies service status and API version. |
+| `/api/v1/validate` | `POST` | `saesV2` (`:8060`) | Validates CSV against required 6-column schema and reports structural issues. |
+| `/api/v1/analyze` | `POST` | `saesV2` (`:8060`) | Executes automated hypothesis testing, Welch/Student decisions, ANOVA, and effect sizes. |
+| `/api/v1/ranking`, `/tables`, `/explore`, `/profiles`, `/power`, `/reproducibility` | `POST` | `saesV2` (`:8060`) | Statistical tables, ranking, exploration, performance profiles, power analysis, and FAIR artifacts. |
+| `/api/v1/chat`, `/api/v1/chat/stream` | `POST` | `saes-ai` (`:8070`) | Queries the AI statistical consultant with dataset context and inline artifact streaming. |
 
-To launch the backend server locally:
+To launch the backend servers locally:
 ```bash
-cd ../saes
-make start-api   # runs uvicorn on port 8060
+cd ../saesV2 && make start-api   # runs uvicorn on port 8060
+cd ../saes-ai && make start-api  # runs uvicorn on port 8070
 ```
 
 ---

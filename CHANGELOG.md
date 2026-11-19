@@ -7,9 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added an interactive **Guide & Tutorial** section (`GuideView.tsx`, `GuideVisuals.tsx`, `GuideSampleData.ts`) accessible from `Header.tsx` and `DatasetHub.tsx`, featuring a visual end-to-end workflow diagram, interactive 6-column tidy long-format CSV schema inspector, Wide-vs-Long format diagram, downloadable starter CSV template, 3 one-click runnable domain examples (Metaheuristics, Multi-Metric ML Classification, Multi-Objective Swarm Intelligence), visual previews of all statistical/chart/profile/power modules, and Python API / AI Consultant guides.
+- Added `SAES-AI API Server URL` configuration, `/health` test button, and `saes_ai_url` persistence in `SettingsModal.tsx` (`client.ts` `getAiHealth()` / `resetAiBaseUrl()`), and updated server launch commands to `saesV2` and `saes-ai`.
+
+### Changed
+
+- Updated `ChatDrawer.tsx`, `QuickChips.tsx`, and `useChat.ts` for a natural, general-purpose conversational assistant, and scoped `App.tsx` chat dataset context to active dataset views (`visualize` and `editor`) so Hub/Guide chats do not send stale dataset state.
+
+### Fixed
+
+- Routed AI chat, provider probe, and Ollama management endpoints (`/api/v1/chat*`) in `SaesApiClient` (`src/api/client.ts`) through a dedicated `aiClient` / `aiBaseUrl` (defaulting to `http://127.0.0.1:8070` in Vite dev mode and configurable via `setAiBaseUrl` or `saes_ai_url` in `localStorage`) instead of the core `saesV2` API URL (`:8060`).
+- Injected `__APP_VERSION__` from `package.json` in `vite.config.ts` so `Header.tsx` and `SettingsModal.tsx` display the current version dynamically instead of hardcoded `v0.1.0`.
+- Updated `README.md` to reflect umbrella Tauri v2 packaging, `saesV2`/`saes-ai` endpoints, and unified logo sizing.
+- Aligned `SelectDropdown` chevron to the right edge for fixed/min-width triggers (such as Bayesian `Left:` / `Right:` selectors) using `justify-between`, and moved the `Size:` selector in `ChartWorkbench.tsx` into the first control row so it does not wrap onto an isolated third row.
+
 ## [Released]
 
 ## [0.2.0] — 2026-11-18 (@rorro6787)
+
+### Added
+
+- Added `SAES-AI API Server URL` configuration, `/health` test button, and `saes_ai_url` persistence in `SettingsModal.tsx` (`client.ts` `getAiHealth()` / `resetAiBaseUrl()`), and updated server launch commands to `saesV2` and `saes-ai`.
 
 ### Fixed
 

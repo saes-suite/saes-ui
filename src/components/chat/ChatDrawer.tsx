@@ -223,7 +223,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({
         {isLoading && (!messages.length || messages[messages.length - 1].role !== 'assistant') && (
           <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/30 border border-border/50 text-xs text-muted-foreground">
             <Bot className="w-4 h-4 animate-bounce text-purple-400" />
-            <span>Analyzing statistical models & formulating recommendation...</span>
+            <span>Thinking...</span>
           </div>
         )}
 

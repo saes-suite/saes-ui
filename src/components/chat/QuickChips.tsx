@@ -7,31 +7,28 @@ interface QuickChipsProps {
 
 const CHIPS = [
   {
+    label: '💡 Friedman vs ANOVA',
+    prompt: 'When should I use Friedman + Nemenyi instead of ANOVA to compare algorithms?',
+  },
+  {
     label: '📂 List Datasets',
-    prompt: 'List all uploaded datasets and tell me which ones are valid.',
+    prompt: 'Which datasets do I currently have in SAES?',
   },
   {
-    label: '📊 Extract KPIs',
-    prompt: 'Extract KPIs and performance summary for the active dataset.',
+    label: '🧪 Check Assumptions',
+    prompt: 'Check normality and homoscedasticity assumptions and recommend statistical tests.',
   },
   {
-    label: '🧪 Normality & Test Advice',
-    prompt:
-      'Check normality and homoscedasticity assumptions on this dataset and recommend the best statistical tests.',
+    label: '📊 Generate Boxplot',
+    prompt: 'Generate a boxplot comparing the algorithms.',
   },
   {
     label: '📈 Plot CD Diagram',
-    prompt:
-      'Generate and show a critical-distance diagram for the active dataset right here in chat.',
-  },
-  {
-    label: '📋 Generate Table',
-    prompt: 'Generate a statistical comparison table for the active dataset and show it here.',
+    prompt: 'Generate a critical-distance diagram and show it here in chat.',
   },
   {
     label: '✨ Create Sample Dataset',
-    prompt:
-      'Create a valid sample SAES benchmark dataset with 3 algorithms and 3 instances, save it, and open it in Visualize.',
+    prompt: 'Create a valid sample SAES benchmark dataset with 3 algorithms and 3 instances.',
   },
 ]
 
