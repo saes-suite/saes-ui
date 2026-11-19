@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [Released]
+
+## [0.3.0] — 2026-11-19 (@rorro6787)
+
 ### Added
 
 - Added an interactive **Guide & Tutorial** section (`GuideView.tsx`, `GuideVisuals.tsx`, `GuideSampleData.ts`) accessible from `Header.tsx` and `DatasetHub.tsx`, featuring a visual end-to-end workflow diagram, interactive 6-column tidy long-format CSV schema inspector, Wide-vs-Long format diagram, downloadable starter CSV template, 3 one-click runnable domain examples (Metaheuristics, Multi-Metric ML Classification, Multi-Objective Swarm Intelligence), visual previews of all statistical/chart/profile/power modules, and Python API / AI Consultant guides.
@@ -22,8 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Injected `__APP_VERSION__` from `package.json` in `vite.config.ts` so `Header.tsx` and `SettingsModal.tsx` display the current version dynamically instead of hardcoded `v0.1.0`.
 - Updated `README.md` to reflect umbrella Tauri v2 packaging, `saesV2`/`saes-ai` endpoints, and unified logo sizing.
 - Aligned `SelectDropdown` chevron to the right edge for fixed/min-width triggers (such as Bayesian `Left:` / `Right:` selectors) using `justify-between`, and moved the `Size:` selector in `ChartWorkbench.tsx` into the first control row so it does not wrap onto an isolated third row.
-
-## [Released]
 
 ## [0.2.0] — 2026-11-18 (@rorro6787)
 
