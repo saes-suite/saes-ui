@@ -22,20 +22,18 @@ import {
   ValidationResponse,
 } from './types'
 
-const isViteDev = (): boolean =>
-  Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV)
-
 export class SaesApiClient {
   private client: AxiosInstance
   private aiClient: AxiosInstance
   private baseUrl: string
   private aiBaseUrl: string
-  private hasExplicitAiBaseUrl: boolean
 
-  constructor(baseUrl: string = 'http://127.0.0.1:8060', aiBaseUrl?: string) {
+  constructor(
+    baseUrl: string = 'http://127.0.0.1:8060',
+    aiBaseUrl: string = 'http://127.0.0.1:8070'
+  ) {
     this.baseUrl = baseUrl
-    this.hasExplicitAiBaseUrl = Boolean(aiBaseUrl)
-    this.aiBaseUrl = aiBaseUrl || (isViteDev() ? 'http://127.0.0.1:8070' : baseUrl)
+    this.aiBaseUrl = aiBaseUrl
     this.client = axios.create({
       baseURL: this.baseUrl,
       timeout: 30000,
@@ -49,10 +47,6 @@ export class SaesApiClient {
   public setBaseUrl(newUrl: string): void {
     this.baseUrl = newUrl
     this.client.defaults.baseURL = newUrl
-    if (!this.hasExplicitAiBaseUrl && !isViteDev()) {
-      this.aiBaseUrl = newUrl
-      this.aiClient.defaults.baseURL = newUrl
-    }
   }
 
   public getBaseUrl(): string {
@@ -60,14 +54,12 @@ export class SaesApiClient {
   }
 
   public setAiBaseUrl(newUrl: string): void {
-    this.hasExplicitAiBaseUrl = true
     this.aiBaseUrl = newUrl
     this.aiClient.defaults.baseURL = newUrl
   }
 
   public resetAiBaseUrl(): void {
-    this.hasExplicitAiBaseUrl = false
-    this.aiBaseUrl = isViteDev() ? 'http://127.0.0.1:8070' : this.baseUrl
+    this.aiBaseUrl = 'http://127.0.0.1:8070'
     this.aiClient.defaults.baseURL = this.aiBaseUrl
   }
 

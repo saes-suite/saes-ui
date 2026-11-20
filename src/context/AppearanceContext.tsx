@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 
 export type Theme = 'light' | 'dark'
-export type FontSize = 'sm' | 'md' | 'lg'
 
 export const MIN_ZOOM = 70
 export const MAX_ZOOM = 160
@@ -11,23 +10,18 @@ export const ZOOM_STEP = 5
 export interface AppearanceContextType {
   theme: Theme
   zoom: number
-  fontSize: FontSize
   setTheme: (theme: Theme) => void
   toggleTheme: () => void
   setZoom: (zoom: number | ((prev: number) => number)) => void
   zoomIn: () => void
   zoomOut: () => void
   resetZoom: () => void
-  setFontSize: (size: FontSize) => void
-  increaseFontSize: () => void
-  decreaseFontSize: () => void
 }
 
 const AppearanceContext = createContext<AppearanceContextType | undefined>(undefined)
 
 const THEME_STORAGE_KEY = 'saes_theme'
 const ZOOM_STORAGE_KEY = 'saes_zoom'
-const FONT_SIZE_STORAGE_KEY = 'saes_font_size'
 
 export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
@@ -46,10 +40,6 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return parsed
       }
     }
-    // Backward compatibility for existing users who had sm/md/lg stored
-    const storedFontSize = localStorage.getItem(FONT_SIZE_STORAGE_KEY)
-    if (storedFontSize === 'sm') return 85
-    if (storedFontSize === 'lg') return 115
     return DEFAULT_ZOOM
   })
 
@@ -70,9 +60,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const baseFontSizePx = (zoom / 100) * 16
     root.style.fontSize = `${baseFontSizePx}px`
     root.setAttribute('data-zoom', String(zoom))
-    root.setAttribute('data-font-size', zoom < 95 ? 'sm' : zoom > 105 ? 'lg' : 'md')
     localStorage.setItem(ZOOM_STORAGE_KEY, String(zoom))
-    localStorage.setItem(FONT_SIZE_STORAGE_KEY, zoom < 95 ? 'sm' : zoom > 105 ? 'lg' : 'md')
     window.dispatchEvent(new Event('resize'))
   }, [zoom])
 
@@ -103,33 +91,17 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setZoom(DEFAULT_ZOOM)
   }
 
-  // Backward compatibility with legacy fontSize controls
-  const fontSize: FontSize = zoom < 95 ? 'sm' : zoom > 105 ? 'lg' : 'md'
-
-  const setFontSize = (size: FontSize) => {
-    if (size === 'sm') setZoom(85)
-    else if (size === 'lg') setZoom(115)
-    else setZoom(100)
-  }
-
-  const increaseFontSize = () => zoomIn()
-  const decreaseFontSize = () => zoomOut()
-
   return (
     <AppearanceContext.Provider
       value={{
         theme,
         zoom,
-        fontSize,
         setTheme,
         toggleTheme,
         setZoom,
         zoomIn,
         zoomOut,
         resetZoom,
-        setFontSize,
-        increaseFontSize,
-        decreaseFontSize,
       }}
     >
       {children}

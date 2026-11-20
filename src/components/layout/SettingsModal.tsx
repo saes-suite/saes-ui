@@ -10,7 +10,6 @@ import {
 import { Button } from '../ui/button'
 import { apiClient } from '../../api/client'
 import { useAISettings } from '../../context/AISettingsContext'
-import { useTauri } from '../../hooks/useTauri'
 import { AISettings, ProviderProbeResponse } from '../../api/types'
 import {
   AlertTriangle,
@@ -54,7 +53,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   initialTab = 'ai',
 }) => {
   const { settings: savedAiSettings, updateSettings: saveAiSettings } = useAISettings()
-  const { isTauri } = useTauri()
 
   const [activeTab, setActiveTab] = useState<'server' | 'ai'>(initialTab)
   const [apiUrl, setApiUrl] = useState<string>(() => apiClient.getBaseUrl())
@@ -130,18 +128,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       localStorage.setItem('saes_api_url', trimmedApiUrl)
     }
 
-    if (!isTauri) {
-      const trimmedAiUrl = aiApiUrl.trim()
-      if (trimmedAiUrl) {
-        apiClient.setAiBaseUrl(trimmedAiUrl)
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('saes_ai_url', trimmedAiUrl)
-        }
-      } else {
-        apiClient.resetAiBaseUrl()
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('saes_ai_url')
-        }
+    const trimmedAiUrl = aiApiUrl.trim()
+    if (trimmedAiUrl) {
+      apiClient.setAiBaseUrl(trimmedAiUrl)
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('saes_ai_url', trimmedAiUrl)
+      }
+    } else {
+      apiClient.resetAiBaseUrl()
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('saes_ai_url')
       }
     }
     onRefreshHealth()
@@ -375,49 +371,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               )}
             </div>
 
-            {!isTauri && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
-                  SAES-AI API Server URL
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={aiApiUrl}
-                    onChange={(e) => {
-                      setAiApiUrl(e.target.value)
-                      setAiServerTestStatus('idle')
-                    }}
-                    placeholder="http://127.0.0.1:8070"
-                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleTestAiServerConnection}
-                    disabled={aiServerTestStatus === 'testing'}
-                    className="flex items-center gap-1.5 shrink-0"
-                  >
-                    {aiServerTestStatus === 'testing' ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      'Test'
-                    )}
-                  </Button>
-                </div>
-                {aiServerTestStatus === 'success' && (
-                  <p className="text-xs text-emerald-500 flex items-center gap-1 font-medium">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> SAES-AI Connected
-                  </p>
-                )}
-                {aiServerTestStatus === 'failed' && (
-                  <p className="text-xs text-amber-500 flex items-center gap-1 font-medium">
-                    <XCircle className="w-3.5 h-3.5" /> SAES-AI Offline
-                  </p>
-                )}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">SAES-AI API Server URL</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={aiApiUrl}
+                  onChange={(e) => {
+                    setAiApiUrl(e.target.value)
+                    setAiServerTestStatus('idle')
+                  }}
+                  placeholder="http://127.0.0.1:8070"
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleTestAiServerConnection}
+                  disabled={aiServerTestStatus === 'testing'}
+                  className="flex items-center gap-1.5 shrink-0"
+                >
+                  {aiServerTestStatus === 'testing' ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    'Test'
+                  )}
+                </Button>
               </div>
-            )}
+              {aiServerTestStatus === 'success' && (
+                <p className="text-xs text-emerald-500 flex items-center gap-1 font-medium">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> SAES-AI Connected
+                </p>
+              )}
+              {aiServerTestStatus === 'failed' && (
+                <p className="text-xs text-amber-500 flex items-center gap-1 font-medium">
+                  <XCircle className="w-3.5 h-3.5" /> SAES-AI Offline
+                </p>
+              )}
+            </div>
 
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border/50 text-xs">
               <div className="flex items-center gap-2">

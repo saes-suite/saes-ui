@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Always route AI endpoints in `SaesApiClient` (`src/api/client.ts`) to `http://127.0.0.1:8070` by default in both development and packaged production modes instead of falling back to `:8060`, and show/save both `SAES API Server URL` and `SAES-AI API Server URL` in `SettingsModal.tsx` regardless of Tauri/Web mode.
+- Removed legacy `fontSize` / `saes_font_size` compatibility layer from `AppearanceContext.tsx` in favor of `zoom`.
+
 ## [Released]
 
 ## [0.3.0] — 2026-11-19 (@rorro6787)
