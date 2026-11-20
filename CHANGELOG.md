@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Multi-stage `Dockerfile` (`node:22-alpine` + `nginx:1.27-alpine`), SPA `nginx.conf`, and `.dockerignore` for containerized web deployment.
+- Automatic git tag (`vX.Y.Z`) creation and GitHub Release publishing in `.github/workflows/release.yml`.
+
 ## [Released]
 
 ## [0.3.1] — 2026-11-20 (@rorro6787)
