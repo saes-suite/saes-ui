@@ -7,10 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [Released]
+
+## [0.3.3] — 2026-11-20 (@rorro6787)
+
 ### Fixed
 - Copy `pnpm-workspace.yaml` before `pnpm install --frozen-lockfile` in `Dockerfile` so `esbuild` build scripts are approved (`ERR_PNPM_IGNORED_BUILDS`).
-
-## [Released]
 
 ## [0.3.2] — 2026-11-20 (@rorro6787)
 
