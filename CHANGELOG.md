@@ -7,11 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [Released]
+
+## [0.4.1] — 2026-11-24 (@rorro6787)
+
 ### Fixed
 
 - Applied Prettier formatting across `ChartWorkbench.tsx`, `GuideView.tsx`, `PowerAnalysisWorkspace.tsx`, `StatsTable.tsx`, and `VisualizeWorkspace.tsx`, and added `prettier --check` to `.github/workflows/test.yml` to match the umbrella `make ci` gate.
-
-## [Released]
 
 ## [0.4.0] — 2026-11-24 (@rorro6787)
 
