@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios'
 import {
   AnalysisResponse,
+  BayesianCorrelatedTResult,
   ChatArtifact,
   ChatRequest,
   ChatResponse,
@@ -8,15 +9,18 @@ import {
   DataExplorationResponse,
   DatasetDetail,
   DatasetItem,
+  EffectSizeForestResult,
   HealthResponse,
   PerformanceProfilesResponse,
   PlotExportFormat,
+  PostHocResult,
   PowerAnalysisResponse,
   ProviderProbeResponse,
   RankingAnalysisResponse,
   ReproducibilityResponse,
   StatisticalTableQueryParams,
   StatisticalTableResponse,
+  TOSTResult,
   TableExportFormat,
   UIAction,
   ValidationResponse,
@@ -150,10 +154,12 @@ export class SaesApiClient {
    */
   public async analyzeDatasetFromPath(
     filename: string,
-    alpha: number = 0.05
+    alpha: number = 0.05,
+    paired: boolean = false
   ): Promise<AnalysisResponse> {
     const formData = new FormData()
     formData.append('alpha', alpha.toString())
+    formData.append('paired', paired ? 'true' : 'false')
 
     const res = await this.client.post<AnalysisResponse>(
       `/api/v1/datasets/${encodeURIComponent(filename)}/analyze`,
@@ -203,7 +209,8 @@ export class SaesApiClient {
   public async analyzeCsv(
     fileOrContent: File | Blob | string,
     alpha: number = 0.05,
-    filename: string = 'data.csv'
+    filename: string = 'data.csv',
+    paired: boolean = false
   ): Promise<AnalysisResponse> {
     const formData = new FormData()
     if (typeof fileOrContent === 'string') {
@@ -213,6 +220,7 @@ export class SaesApiClient {
       formData.append('file', fileOrContent, filename)
     }
     formData.append('alpha', alpha.toString())
+    formData.append('paired', paired ? 'true' : 'false')
 
     const res = await this.client.post<AnalysisResponse>('/api/v1/analyze', formData, {
       headers: {
@@ -234,7 +242,9 @@ export class SaesApiClient {
     ropePercent: number = 1.0,
     algoA?: string,
     algoB?: string,
-    bayesianMethod: 'sign' | 'signed-rank' = 'signed-rank'
+    bayesianMethod: 'sign' | 'signed-rank' = 'signed-rank',
+    rope?: number,
+    priorStrength?: number
   ): Promise<RankingAnalysisResponse> {
     const formData = new FormData()
     formData.append('metric', metric)
@@ -244,6 +254,12 @@ export class SaesApiClient {
       formData.append('instance', instance)
     }
     formData.append('rope_percent', ropePercent.toString())
+    if (rope !== undefined) {
+      formData.append('rope', rope.toString())
+    }
+    if (priorStrength !== undefined) {
+      formData.append('prior_strength', priorStrength.toString())
+    }
     if (algoA) {
       formData.append('algo_a', algoA)
     }
@@ -277,7 +293,9 @@ export class SaesApiClient {
     algoA?: string,
     algoB?: string,
     filename: string = 'data.csv',
-    bayesianMethod: 'sign' | 'signed-rank' = 'signed-rank'
+    bayesianMethod: 'sign' | 'signed-rank' = 'signed-rank',
+    rope?: number,
+    priorStrength?: number
   ): Promise<RankingAnalysisResponse> {
     const formData = new FormData()
     if (typeof fileOrContent === 'string') {
@@ -293,6 +311,12 @@ export class SaesApiClient {
       formData.append('instance', instance)
     }
     formData.append('rope_percent', ropePercent.toString())
+    if (rope !== undefined) {
+      formData.append('rope', rope.toString())
+    }
+    if (priorStrength !== undefined) {
+      formData.append('prior_strength', priorStrength.toString())
+    }
     if (algoA) {
       formData.append('algo_a', algoA)
     }
@@ -331,6 +355,7 @@ export class SaesApiClient {
     if (params.latex_document_mode)
       formData.append('latex_document_mode', params.latex_document_mode)
     if (params.latex_notation) formData.append('latex_notation', params.latex_notation)
+    if (params.paired !== undefined) formData.append('paired', params.paired ? 'true' : 'false')
     if (params.pdf_title) formData.append('pdf_title', params.pdf_title)
     if (params.pdf_caption) formData.append('pdf_caption', params.pdf_caption)
     if (params.pdf_theme) formData.append('pdf_theme', params.pdf_theme)
@@ -366,6 +391,7 @@ export class SaesApiClient {
     if (params.precision !== undefined) q.precision = params.precision
     if (params.latex_document_mode) q.latex_document_mode = params.latex_document_mode
     if (params.latex_notation) q.latex_notation = params.latex_notation
+    if (params.paired !== undefined) q.paired = params.paired ? 'true' : 'false'
     if (params.pdf_title) q.pdf_title = params.pdf_title
     if (params.pdf_caption) q.pdf_caption = params.pdf_caption
     if (params.pdf_theme) q.pdf_theme = params.pdf_theme
@@ -600,7 +626,13 @@ export class SaesApiClient {
   // ==========================================
   public async getPerformanceProfilesFromPath(
     filename: string,
-    params: { metric?: string; alpha?: number; max_tau?: number } = {}
+    params: {
+      metric?: string
+      alpha?: number
+      max_tau?: number
+      paired?: boolean
+      posthoc_correction?: string
+    } = {}
   ): Promise<PerformanceProfilesResponse> {
     const res = await this.client.get<PerformanceProfilesResponse>(
       `/api/v1/datasets/${encodeURIComponent(filename)}/profiles`,
@@ -611,7 +643,13 @@ export class SaesApiClient {
 
   public async getPerformanceProfilesFromCsv(
     fileOrContent: File | Blob | string,
-    params: { metric?: string; alpha?: number; max_tau?: number } = {}
+    params: {
+      metric?: string
+      alpha?: number
+      max_tau?: number
+      paired?: boolean
+      posthoc_correction?: string
+    } = {}
   ): Promise<PerformanceProfilesResponse> {
     const formData = new FormData()
     if (typeof fileOrContent === 'string') {
@@ -622,6 +660,8 @@ export class SaesApiClient {
     if (params.metric) formData.append('metric', params.metric)
     if (params.alpha !== undefined) formData.append('alpha', params.alpha.toString())
     if (params.max_tau !== undefined) formData.append('max_tau', params.max_tau.toString())
+    if (params.paired !== undefined) formData.append('paired', params.paired ? 'true' : 'false')
+    if (params.posthoc_correction) formData.append('posthoc_correction', params.posthoc_correction)
 
     const res = await this.client.post<PerformanceProfilesResponse>('/api/v1/profiles', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
@@ -639,6 +679,7 @@ export class SaesApiClient {
       alpha?: number
       target_power?: number
       target_effect_size?: number
+      paired?: boolean
     } = {}
   ): Promise<PowerAnalysisResponse> {
     const res = await this.client.get<PowerAnalysisResponse>(
@@ -655,6 +696,7 @@ export class SaesApiClient {
       alpha?: number
       target_power?: number
       target_effect_size?: number
+      paired?: boolean
     } = {}
   ): Promise<PowerAnalysisResponse> {
     const formData = new FormData()
@@ -669,8 +711,228 @@ export class SaesApiClient {
       formData.append('target_power', params.target_power.toString())
     if (params.target_effect_size !== undefined)
       formData.append('target_effect_size', params.target_effect_size.toString())
+    if (params.paired !== undefined) formData.append('paired', params.paired ? 'true' : 'false')
 
     const res = await this.client.post<PowerAnalysisResponse>('/api/v1/power', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return res.data
+  }
+
+  // ==========================================
+  // POST-HOC LAB, TOST EQUIVALENCE, BAYESIAN CORRELATED T & EFFECT-SIZE FOREST
+  // ==========================================
+  public async getPostHocFromPath(
+    filename: string,
+    params: {
+      metric?: string
+      instance?: string
+      method?: string
+      control?: string
+      p_adjust?: string
+      alpha?: number
+    } = {}
+  ): Promise<PostHocResult> {
+    const res = await this.client.get<PostHocResult>(
+      `/api/v1/datasets/${encodeURIComponent(filename)}/posthoc`,
+      { params }
+    )
+    return res.data
+  }
+
+  public async getPostHocFromCsv(
+    fileOrContent: File | Blob | string,
+    params: {
+      metric?: string
+      instance?: string
+      method?: string
+      control?: string
+      p_adjust?: string
+      alpha?: number
+    } = {}
+  ): Promise<PostHocResult> {
+    const formData = new FormData()
+    if (typeof fileOrContent === 'string') {
+      formData.append('file', new Blob([fileOrContent], { type: 'text/csv' }), 'data.csv')
+    } else {
+      formData.append('file', fileOrContent, 'data.csv')
+    }
+    if (params.metric) formData.append('metric', params.metric)
+    if (params.instance) formData.append('instance', params.instance)
+    if (params.method) formData.append('method', params.method)
+    if (params.control) formData.append('control', params.control)
+    if (params.p_adjust) formData.append('p_adjust', params.p_adjust)
+    if (params.alpha !== undefined) formData.append('alpha', params.alpha.toString())
+
+    const res = await this.client.post<PostHocResult>('/api/v1/posthoc', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return res.data
+  }
+
+  public async getTostFromPath(
+    filename: string,
+    params: {
+      metric?: string
+      algo_a?: string
+      algo_b?: string
+      low_eqbound?: number
+      high_eqbound?: number
+      scope?: string
+      instance?: string
+      alpha?: number
+      paired?: boolean
+      equal_var?: boolean
+    } = {}
+  ): Promise<TOSTResult> {
+    const res = await this.client.get<TOSTResult>(
+      `/api/v1/datasets/${encodeURIComponent(filename)}/tost`,
+      { params }
+    )
+    return res.data
+  }
+
+  public async getTostFromCsv(
+    fileOrContent: File | Blob | string,
+    params: {
+      metric?: string
+      algo_a?: string
+      algo_b?: string
+      low_eqbound?: number
+      high_eqbound?: number
+      scope?: string
+      instance?: string
+      alpha?: number
+      paired?: boolean
+      equal_var?: boolean
+    } = {}
+  ): Promise<TOSTResult> {
+    const formData = new FormData()
+    if (typeof fileOrContent === 'string') {
+      formData.append('file', new Blob([fileOrContent], { type: 'text/csv' }), 'data.csv')
+    } else {
+      formData.append('file', fileOrContent, 'data.csv')
+    }
+    if (params.metric) formData.append('metric', params.metric)
+    if (params.algo_a) formData.append('algo_a', params.algo_a)
+    if (params.algo_b) formData.append('algo_b', params.algo_b)
+    if (params.low_eqbound !== undefined)
+      formData.append('low_eqbound', params.low_eqbound.toString())
+    if (params.high_eqbound !== undefined)
+      formData.append('high_eqbound', params.high_eqbound.toString())
+    if (params.scope) formData.append('scope', params.scope)
+    if (params.instance) formData.append('instance', params.instance)
+    if (params.alpha !== undefined) formData.append('alpha', params.alpha.toString())
+    if (params.paired !== undefined) formData.append('paired', params.paired ? 'true' : 'false')
+    if (params.equal_var !== undefined)
+      formData.append('equal_var', params.equal_var ? 'true' : 'false')
+
+    const res = await this.client.post<TOSTResult>('/api/v1/tost', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return res.data
+  }
+
+  public async getBayesianCorrelatedTFromPath(
+    filename: string,
+    params: {
+      metric?: string
+      algo_a?: string
+      algo_b?: string
+      scope?: string
+      instance?: string
+      rope?: number
+      rho?: number
+    } = {}
+  ): Promise<BayesianCorrelatedTResult> {
+    const res = await this.client.get<BayesianCorrelatedTResult>(
+      `/api/v1/datasets/${encodeURIComponent(filename)}/bayesian/correlated-ttest`,
+      { params }
+    )
+    return res.data
+  }
+
+  public async getBayesianCorrelatedTFromCsv(
+    fileOrContent: File | Blob | string,
+    params: {
+      metric?: string
+      algo_a?: string
+      algo_b?: string
+      scope?: string
+      instance?: string
+      rope?: number
+      rho?: number
+    } = {}
+  ): Promise<BayesianCorrelatedTResult> {
+    const formData = new FormData()
+    if (typeof fileOrContent === 'string') {
+      formData.append('file', new Blob([fileOrContent], { type: 'text/csv' }), 'data.csv')
+    } else {
+      formData.append('file', fileOrContent, 'data.csv')
+    }
+    if (params.metric) formData.append('metric', params.metric)
+    if (params.algo_a) formData.append('algo_a', params.algo_a)
+    if (params.algo_b) formData.append('algo_b', params.algo_b)
+    if (params.scope) formData.append('scope', params.scope)
+    if (params.instance) formData.append('instance', params.instance)
+    if (params.rope !== undefined) formData.append('rope', params.rope.toString())
+    if (params.rho !== undefined) formData.append('rho', params.rho.toString())
+
+    const res = await this.client.post<BayesianCorrelatedTResult>(
+      '/api/v1/bayesian/correlated-ttest',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    )
+    return res.data
+  }
+
+  public async getEffectSizesFromPath(
+    filename: string,
+    params: {
+      metric?: string
+      scope?: string
+      instance?: string
+      reference_algorithm?: string
+      alpha?: number
+      paired?: boolean
+      p_adjust?: string
+    } = {}
+  ): Promise<EffectSizeForestResult> {
+    const res = await this.client.get<EffectSizeForestResult>(
+      `/api/v1/datasets/${encodeURIComponent(filename)}/effect-sizes`,
+      { params }
+    )
+    return res.data
+  }
+
+  public async getEffectSizesFromCsv(
+    fileOrContent: File | Blob | string,
+    params: {
+      metric?: string
+      scope?: string
+      instance?: string
+      reference_algorithm?: string
+      alpha?: number
+      paired?: boolean
+      p_adjust?: string
+    } = {}
+  ): Promise<EffectSizeForestResult> {
+    const formData = new FormData()
+    if (typeof fileOrContent === 'string') {
+      formData.append('file', new Blob([fileOrContent], { type: 'text/csv' }), 'data.csv')
+    } else {
+      formData.append('file', fileOrContent, 'data.csv')
+    }
+    if (params.metric) formData.append('metric', params.metric)
+    if (params.scope) formData.append('scope', params.scope)
+    if (params.instance) formData.append('instance', params.instance)
+    if (params.reference_algorithm)
+      formData.append('reference_algorithm', params.reference_algorithm)
+    if (params.alpha !== undefined) formData.append('alpha', params.alpha.toString())
+    if (params.paired !== undefined) formData.append('paired', params.paired ? 'true' : 'false')
+    if (params.p_adjust) formData.append('p_adjust', params.p_adjust)
+
+    const res = await this.client.post<EffectSizeForestResult>('/api/v1/effect-sizes', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     return res.data
@@ -842,6 +1104,8 @@ export class SaesApiClient {
       scope?: string
       alpha?: number
       rope_percent?: number
+      rope?: number
+      prior_strength?: number
       palette?: string | null
       dpi?: number
     }
@@ -855,6 +1119,9 @@ export class SaesApiClient {
     if (params.alpha !== undefined) formData.append('alpha', String(params.alpha))
     if (params.rope_percent !== undefined)
       formData.append('rope_percent', String(params.rope_percent))
+    if (params.rope !== undefined) formData.append('rope', String(params.rope))
+    if (params.prior_strength !== undefined)
+      formData.append('prior_strength', String(params.prior_strength))
     if (params.palette) formData.append('palette', params.palette)
     if (params.dpi !== undefined) formData.append('dpi', String(params.dpi))
 
@@ -879,6 +1146,8 @@ export class SaesApiClient {
       scope?: string
       alpha?: number
       rope_percent?: number
+      rope?: number
+      prior_strength?: number
       palette?: string | null
       dpi?: number
     }
@@ -894,6 +1163,9 @@ export class SaesApiClient {
     if (params.alpha !== undefined) formData.append('alpha', String(params.alpha))
     if (params.rope_percent !== undefined)
       formData.append('rope_percent', String(params.rope_percent))
+    if (params.rope !== undefined) formData.append('rope', String(params.rope))
+    if (params.prior_strength !== undefined)
+      formData.append('prior_strength', String(params.prior_strength))
     if (params.palette) formData.append('palette', params.palette)
     if (params.dpi !== undefined) formData.append('dpi', String(params.dpi))
 

@@ -23,6 +23,7 @@ import {
   Wrench,
   ChevronRight,
   Terminal,
+  ExternalLink,
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
@@ -217,6 +218,17 @@ export const GuideView: React.FC<GuideViewProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <a
+              href="https://saes-suite.github.io/saes/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 h-9 text-xs font-semibold rounded-lg border border-border/80 bg-background/80 hover:bg-muted text-foreground transition-colors shadow-xs"
+              title="Open SAES documentation hosted on GitHub Pages"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
+              <span>Docs (GitHub Pages)</span>
+              <ExternalLink className="w-3 h-3 text-muted-foreground" />
+            </a>
             <Button
               type="button"
               variant="outline"
@@ -287,6 +299,26 @@ export const GuideView: React.FC<GuideViewProps> = ({
               )
             })}
           </nav>
+
+          {/* Sidebar Official Documentation Card */}
+          <div className="hidden lg:block rounded-xl border border-border/80 bg-muted/25 p-4 space-y-2.5">
+            <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+              <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
+              Official Documentation
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Explore the full Python API, mathematical specifications, and tutorials hosted on GitHub Pages.
+            </p>
+            <a
+              href="https://saes-suite.github.io/saes/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-between w-full h-8 px-3 rounded-lg border border-border bg-background hover:bg-muted text-xs font-medium text-foreground transition-colors group"
+            >
+              <span className="truncate">saes-suite.github.io</span>
+              <ExternalLink className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground shrink-0 ml-1" />
+            </a>
+          </div>
 
           {/* Sidebar Quick Help Card */}
           <div className="hidden lg:block rounded-xl border border-border/80 bg-muted/25 p-4 space-y-2.5">
@@ -793,11 +825,12 @@ export const GuideView: React.FC<GuideViewProps> = ({
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {[
-                      'Shapiro-Wilk Normality',
+                      'Shapiro-Wilk',
+                      'Lilliefors KS',
+                      'Anderson-Darling',
                       'Levene Homoscedasticity',
-                      'Mauchly Sphericity',
-                      'Skewness & Outliers',
-                      'Auto Recommender',
+                      'Design Guards (n=1 / N=1)',
+                      'Smart Recommender',
                     ].map((tag) => (
                       <span
                         key={tag}
@@ -822,19 +855,21 @@ export const GuideView: React.FC<GuideViewProps> = ({
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Builds <strong>Instance × Algorithm</strong>, <strong>Pairwise Matrix</strong>,
-                    and <strong>Omnibus + Post-Hoc</strong> tables with effect sizes and winner
-                    highlighting.
+                    Builds <strong>Instance × Algorithm</strong>, <strong>Pairwise Matrix</strong>,{' '}
+                    <strong>Global Rankings (5 Blocked Omnibus Tests)</strong>, and a dedicated{' '}
+                    <strong>Post-Hoc Lab</strong> (Tukey HSD, Games-Howell, Dunnett, Dunn,
+                    Conover-Iman) with explicit Independent vs. Paired design control.
                   </p>
                   <div className="space-y-1 text-[11px] font-mono text-muted-foreground">
                     <div>
                       <span className="text-foreground font-semibold">Tests:</span> auto, friedman,
-                      kruskal, wilcoxon, mann_whitney, anova_oneway, anova_welch, ttest_ind,
-                      ttest_rel, ttest_welch
+                      friedman_aligned, quade, rm_anova (GG ε), brunner_munzel, kruskal, wilcoxon,
+                      mann_whitney, anova_oneway, anova_welch, ttest_welch, ttest_ind, ttest_rel
                     </div>
                     <div>
-                      <span className="text-foreground font-semibold">Post-hoc:</span> holm,
-                      bonferroni, hochberg, fdr_bh, none
+                      <span className="text-foreground font-semibold">Adjustments (13):</span> holm,
+                      bonferroni, hochberg, hommel, finner, holland, rom, li, fdr_bh, fdr_by,
+                      shaffer, bergmann_hommel, none
                     </div>
                   </div>
                 </div>
@@ -855,15 +890,15 @@ export const GuideView: React.FC<GuideViewProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2.5">
+                    <div className="space-y-2.5">
                     <BoxplotMiniSvg />
                     <div>
                       <div className="text-xs font-semibold text-foreground">
-                        Boxplots &amp; Violin Plots
+                        Distributions (Boxplot, Violin, ECDF, Mean ± SD)
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                        Inspect run-level distributions, quartiles, medians, and outliers across
-                        instances.
+                        Inspect run-level quartiles, densities, empirical CDFs, and backend Mean ±
+                        SD bars across algorithms.
                       </p>
                     </div>
                   </div>
@@ -872,11 +907,11 @@ export const GuideView: React.FC<GuideViewProps> = ({
                     <CriticalDistanceMiniSvg />
                     <div>
                       <div className="text-xs font-semibold text-foreground">
-                        Critical Distance (CD)
+                        Rankings (CD, Plackett-Luce &amp; Effect-Size Forest)
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                        Average Friedman ranks with horizontal clique bars linking statistically
-                        tied algorithms.
+                        Demšar Critical Distance diagrams, Bayesian Plackett-Luce P(Best) + 95% CrI,
+                        and exact 95% CI Effect-Size Forest plots (g, d, A₁₂, δ).
                       </p>
                     </div>
                   </div>
@@ -885,12 +920,11 @@ export const GuideView: React.FC<GuideViewProps> = ({
                     <BayesianSimplexMiniSvg />
                     <div>
                       <div className="text-xs font-semibold text-foreground">
-                        Bayesian Sign &amp; Signed-Rank
+                        Bayesian (Sign, Signed-Rank &amp; Correlated t)
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                        Posterior simplex for <code className="font-mono">p(A)</code>,{' '}
-                        <code className="font-mono">p(ROPE)</code>, and{' '}
-                        <code className="font-mono">p(B)</code>.
+                        Ternary ROPE simplex (relative/absolute ROPE &amp; prior strength) plus
+                        Nadeau-Bengio Bayesian Correlated t-test posterior density for CV folds.
                       </p>
                     </div>
                   </div>
@@ -929,8 +963,10 @@ export const GuideView: React.FC<GuideViewProps> = ({
                   </div>
                   <PowerCurveMiniSvg />
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Post-hoc statistical power audit, recommended runs per cell for 80%/90% power,
-                    and sensitivity curves across effect sizes.
+                    A priori sample-size planning, sensitivity power curves,{' '}
+                    <strong>MDES sensitivity audit</strong> (Hoenig &amp; Heisey 2001), and an
+                    interactive <strong>TOST Equivalence Calculator</strong> with (1−2α) interval
+                    charts.
                   </p>
                 </div>
               </div>
@@ -965,7 +1001,7 @@ export const GuideView: React.FC<GuideViewProps> = ({
                 <div className="p-4 space-y-3 flex-1 bg-background">
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     Every UI operation maps 1:1 to{' '}
-                    <code className="font-mono text-foreground">saesV2</code>. The{' '}
+                    <code className="font-mono text-foreground">saes</code>. The{' '}
                     <strong>Code &amp; Reproducibility</strong> tab also exports a runnable script,
                     Jupyter Notebook (<code className="font-mono">.ipynb</code>), and SHA-256
                     manifest.
@@ -973,6 +1009,18 @@ export const GuideView: React.FC<GuideViewProps> = ({
                   <pre className="rounded-lg border border-border/70 bg-muted/30 p-3.5 text-[11px] font-mono text-foreground overflow-x-auto leading-relaxed">
                     {PYTHON_API_SNIPPET}
                   </pre>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-border/60 text-xs">
+                    <span className="text-muted-foreground">Looking for detailed Python docstrings &amp; API references?</span>
+                    <a
+                      href="https://saes-suite.github.io/saes/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline shrink-0"
+                    >
+                      <span>saes Docs on GitHub Pages</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
                 </div>
               </div>
 

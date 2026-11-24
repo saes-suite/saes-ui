@@ -187,7 +187,7 @@ export const ReproducibilityWorkspace: React.FC<ReproducibilityWorkspaceProps> =
             <button
               type="button"
               onClick={() => setActiveSubTab('script')}
-              title="Standalone executable Python script (import saesV2) to replicate full benchmark results"
+              title="Standalone executable Python script (import saes) to replicate full benchmark results"
               className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                 activeSubTab === 'script'
                   ? 'bg-primary text-primary-foreground shadow-xs'
@@ -419,7 +419,7 @@ export const ReproducibilityWorkspace: React.FC<ReproducibilityWorkspaceProps> =
                     <Badge variant="outline" className="text-[10px]">
                       Cell 1
                     </Badge>
-                    <span>Import saesV2 &amp; Load Benchmark Dataset</span>
+                    <span>Import saes &amp; Load Benchmark Dataset</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[10px]">
@@ -522,7 +522,7 @@ export const ReproducibilityWorkspace: React.FC<ReproducibilityWorkspaceProps> =
                     </div>
 
                     <div className="flex justify-between py-1.5 border-b border-border/60">
-                      <span className="text-muted-foreground">SAESv2 Core Version:</span>
+                      <span className="text-muted-foreground">SAES Core Version:</span>
                       <span className="font-mono font-semibold text-indigo-600">
                         v{data.manifest.saes_version}
                       </span>
@@ -542,12 +542,21 @@ export const ReproducibilityWorkspace: React.FC<ReproducibilityWorkspaceProps> =
                       </span>
                     </div>
 
-                    <div className="flex justify-between py-1.5">
+                    <div className="flex justify-between py-1.5 border-b border-border/60">
                       <span className="text-muted-foreground">Pandas Engine:</span>
                       <span className="font-mono font-medium text-foreground">
                         v{data.manifest.pandas_version}
                       </span>
                     </div>
+
+                    {data.manifest.statsmodels_version && (
+                      <div className="flex justify-between py-1.5">
+                        <span className="text-muted-foreground">Statsmodels Engine:</span>
+                        <span className="font-mono font-medium text-foreground">
+                          v{data.manifest.statsmodels_version}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

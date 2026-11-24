@@ -54,6 +54,8 @@ export interface CellAnalysis {
   is_significant: boolean
   effect_size_name: string | null
   effect_size_value: number | null
+  effect_size_ci_lower?: number | null
+  effect_size_ci_upper?: number | null
   effect_size_magnitude: 'negligible' | 'small' | 'medium' | 'large' | string | null
   warnings: string[]
   interpretation?: string
@@ -94,6 +96,142 @@ export interface CriticalDistanceResult {
   maximize: boolean
   ranks: AlgorithmRankItem[]
   cliques: [number, number][]
+  warnings?: string[]
+}
+
+export interface BlockedOmnibusResult {
+  test_name: string
+  metric: string
+  statistic: number
+  p_value: number
+  degrees_of_freedom: number | [number, number]
+  alpha: number
+  is_significant: boolean
+  k: number
+  n_blocks: number
+  maximize: boolean
+  ranks: AlgorithmRankItem[]
+  sphericity_epsilon?: number | null
+  warnings?: string[]
+  interpretation?: string
+}
+
+export interface BayesianPlackettLuceItem {
+  algorithm: string
+  worth: number
+  prob_best: number
+  expected_rank: number
+  rank_ci_lower: number
+  rank_ci_upper: number
+}
+
+export interface BayesianPlackettLuceResult {
+  metric: string
+  k: number
+  n_blocks: number
+  num_samples: number
+  maximize: boolean
+  items: BayesianPlackettLuceItem[]
+  interpretation?: string
+}
+
+export interface BayesianCorrelatedTResult {
+  algo_a: string
+  algo_b: string
+  n_observations: number
+  rho: number
+  rope_low: number
+  rope_high: number
+  mean_diff: number
+  posterior_scale: number
+  degrees_of_freedom: number
+  p_left: number
+  p_rope: number
+  p_right: number
+  curve_x: number[]
+  curve_y: number[]
+  interpretation?: string
+}
+
+export interface PostHocComparisonItem {
+  group_1: string
+  group_2: string
+  statistic: number
+  p_value: number
+  p_adjusted: number
+  is_significant: boolean
+  mean_diff?: number | null
+  ci_lower?: number | null
+  ci_upper?: number | null
+  degrees_of_freedom?: number | null
+}
+
+export interface PostHocResult {
+  method: string
+  p_adjust: string
+  alpha: number
+  groups: string[]
+  comparisons: PostHocComparisonItem[]
+  p_value_matrix: Record<string, Record<string, number>>
+  warnings?: string[]
+}
+
+export interface TOSTResult {
+  test_name: string
+  group_1: string
+  group_2: string
+  mean_diff: number
+  low_eqbound: number
+  high_eqbound: number
+  t_lower: number
+  p_lower: number
+  t_upper: number
+  p_upper: number
+  p_value: number
+  degrees_of_freedom: number
+  alpha: number
+  is_equivalent: boolean
+  ci_lower: number
+  ci_upper: number
+  paired: boolean
+  interpretation?: string
+}
+
+export interface EffectSizeComparisonItem {
+  algorithm: string
+  reference: string
+  n_algorithm: number
+  n_reference: number
+  cohens_d: number
+  cohens_d_ci_lower: number
+  cohens_d_ci_upper: number
+  cohens_d_magnitude: string
+  hedges_g: number
+  hedges_g_ci_lower: number
+  hedges_g_ci_upper: number
+  a12: number
+  a12_ci_lower: number
+  a12_ci_upper: number
+  a12_magnitude: string
+  cliffs_delta: number
+  cliffs_delta_ci_lower: number
+  cliffs_delta_ci_upper: number
+  p_value: number
+  p_adjusted: number
+  is_significant: boolean
+}
+
+export interface EffectSizeForestResult {
+  metric: string
+  scope: string
+  instance?: string | null
+  reference_algorithm: string
+  maximize: boolean
+  alpha: number
+  paired: boolean
+  p_adjust: string
+  items: EffectSizeComparisonItem[]
+  warnings?: string[]
 }
 
 export interface BayesianPosteriorItem {
@@ -144,13 +282,20 @@ export interface BayesianRankResult {
   triangle_y: number[]
   boundary_lines: [number, number, number, number][]
   items: BayesianPosteriorItem[]
+  rope_absolute?: number | null
+  prior_strength?: number
+  warnings?: string[]
 }
 
 export interface RankingAnalysisResponse {
   critical_distance: CriticalDistanceResult
   bayesian_ranking: BayesianRankResult
-  bayesian_sign?: BayesianRankResult
-  bayesian_signed_rank?: BayesianRankResult
+  bayesian_sign?: BayesianRankResult | null
+  bayesian_signed_rank?: BayesianRankResult | null
+  bayesian_plackett_luce?: BayesianPlackettLuceResult | null
+  friedman_aligned?: BlockedOmnibusResult | null
+  quade?: BlockedOmnibusResult | null
+  rm_anova?: BlockedOmnibusResult | null
 }
 
 export type TableType = 'instance_algorithm' | 'pairwise_matrix' | 'omnibus_posthoc'
@@ -159,6 +304,10 @@ export type StatisticalTestType =
   | 'auto'
   | 'wilcoxon'
   | 'friedman'
+  | 'friedman_aligned'
+  | 'quade'
+  | 'rm_anova'
+  | 'brunner_munzel'
   | 'mann_whitney'
   | 'kruskal'
   | 'anova_oneway'
@@ -167,7 +316,20 @@ export type StatisticalTestType =
   | 'ttest_ind'
   | 'ttest_rel'
 
-export type PostHocCorrectionType = 'holm' | 'bonferroni' | 'hochberg' | 'fdr_bh' | 'none'
+export type PostHocCorrectionType =
+  | 'holm'
+  | 'bonferroni'
+  | 'hochberg'
+  | 'hommel'
+  | 'finner'
+  | 'holland'
+  | 'rom'
+  | 'li'
+  | 'fdr_bh'
+  | 'fdr_by'
+  | 'shaffer'
+  | 'bergmann_hommel'
+  | 'none'
 
 export type SummaryStatMode = 'auto' | 'mean_std' | 'median_iqr'
 
@@ -332,6 +494,10 @@ export interface StatisticalTableResponse {
   global_welch_p: number | null
   global_kruskal_h: number | null
   global_kruskal_p: number | null
+  friedman_aligned_stat?: number | null
+  friedman_aligned_p_value?: number | null
+  quade_stat?: number | null
+  quade_p_value?: number | null
   instance_rows: BenchmarkTableInstanceRow[]
   algorithm_summaries: AlgorithmSummaryFooter[]
   pairwise_matrix: PairwiseMatrixCell[][]
@@ -372,6 +538,7 @@ export interface StatisticalTableQueryParams {
   precision?: number
   latex_document_mode?: LatexDocumentMode | string
   latex_notation?: LatexNotation | string
+  paired?: boolean
   pdf_title?: string
   pdf_caption?: string
   pdf_theme?: PdfTheme | string
@@ -407,6 +574,9 @@ export interface DistributionProfile {
   ks_stat: number
   ks_p: number
   ks_passed: boolean
+  anderson_stat?: number | null
+  anderson_p?: number | null
+  anderson_passed?: boolean | null
   is_normal: boolean
   distribution_shape: string
   quantiles: Record<string, number>
@@ -448,6 +618,8 @@ export interface ContextDiagnostics {
   homoscedasticity_bartlett_stat: number
   homoscedasticity_bartlett_p: number
   total_outliers: number
+  can_run_cell_tests?: boolean
+  can_run_blocked_omnibus?: boolean
 }
 
 export interface TestRecommendation {
@@ -461,6 +633,8 @@ export interface TestRecommendation {
   assumptions_satisfied: string[]
   assumptions_violated: string[]
   suggested_table_type: string
+  target_tab?: string
+  target_mode?: string
   posthoc_suggestion: string
   effect_size_suggestion: string
   reference_citation: string
@@ -738,6 +912,21 @@ export interface PostHocPowerItem {
   recommendation: string
 }
 
+export interface SensitivityAuditItem {
+  algo_1: string
+  algo_2: string
+  instance: string
+  metric: string
+  n_samples: number
+  target_power: number
+  alpha: number
+  paired: boolean
+  mdes_cohens_d: number
+  observed_cohens_d: number
+  observed_a12: number
+  recommendation: string
+}
+
 export interface PowerAnalysisResponse {
   alpha: number
   target_power: number
@@ -745,6 +934,7 @@ export interface PowerAnalysisResponse {
   sample_size_recommendations: SampleSizeRecommendation[]
   power_curves: PowerCurveSeries[]
   post_hoc_audit: PostHocPowerItem[]
+  sensitivity_audit?: SensitivityAuditItem[]
   overall_power_health: string
 }
 
@@ -756,6 +946,7 @@ export interface EnvironmentManifest {
   scipy_version: string
   numpy_version: string
   pandas_version: string
+  statsmodels_version?: string
   dataset_checksum_sha256: string
   timestamp: string
   row_count: number

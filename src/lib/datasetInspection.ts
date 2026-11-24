@@ -295,8 +295,8 @@ export function inspectDatasetStructure(rawCsv: string): DatasetStructureResult 
   const isExactSchemaMatch =
     unmatchedRequired.length === 0 && columnCount >= REQUIRED_COLUMNS.length
 
-  // Case 1: Falta una columna entera (columnCount < 6)
-  // O el número total de columnas es menor que las requeridas
+  // Case 1: An entire required column is missing (columnCount < 6),
+  // or the total number of columns is lower than required
   const isMissingEntireColumn = columnCount < REQUIRED_COLUMNS.length
   const missingColumnsList: string[] = []
 
@@ -309,7 +309,7 @@ export function inspectDatasetStructure(rawCsv: string): DatasetStructureResult 
     }
   }
 
-  // Case 2: El número de columnas es el correcto (columnCount >= 6), pero no coinciden los nombres
+  // Case 2: Column count is sufficient (columnCount >= 6), but column names do not match
   const canMapColumns = !isExactSchemaMatch && columnCount >= REQUIRED_COLUMNS.length
 
   // Build intelligent suggested mapping

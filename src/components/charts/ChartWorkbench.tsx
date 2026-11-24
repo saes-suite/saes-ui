@@ -1,6 +1,12 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
 import Plotly, { Data, Layout, Annotations, Shape } from 'plotly.js-dist-min'
-import { BenchmarkRecord, RankingAnalysisResponse } from '../../api/types'
+import {
+  BayesianCorrelatedTResult,
+  BenchmarkRecord,
+  DataExplorationResponse,
+  EffectSizeForestResult,
+  RankingAnalysisResponse,
+} from '../../api/types'
 import { apiClient } from '../../api/client'
 import { PlotlyChart } from './PlotlyChart'
 import { PaletteSelector, PaletteColorPicker, SCIENTIFIC_PALETTES } from './PaletteSelector'
@@ -8,6 +14,8 @@ import { ExportToolbar } from './ExportToolbar'
 import { SelectDropdown } from '../ui/select-dropdown'
 import { Button } from '../ui/button'
 import {
+  AlertTriangle,
+  BarChart2,
   BarChart3,
   Box,
   Activity,
@@ -24,6 +32,10 @@ import {
   Sparkles,
   Layers,
   Loader2,
+  TrendingUp,
+  Trophy,
+  SlidersHorizontal,
+  LineChart,
 } from 'lucide-react'
 import { useAppearance } from '../../context/AppearanceContext'
 
@@ -33,14 +45,101 @@ interface ChartWorkbenchProps {
   apiOnline?: boolean
   selectedDatasetFilename?: string | null
   rawCsv?: string
+  initialGraphType?: string
+  initialMetric?: string
+  exploration?: DataExplorationResponse | null
 }
 
-type GraphType = 'boxplot' | 'violin' | 'critical-distance' | 'bayesian-sign' | 'bayesian-rank'
+type GraphType =
+  | 'boxplot'
+  | 'violin'
+  | 'ecdf'
+  | 'barplot'
+  | 'critical-distance'
+  | 'bayesian-sign'
+  | 'bayesian-rank'
+  | 'plackett-luce'
+  | 'effect-size-forest'
+  | 'bayesian-correlated-t'
+type ForestMetricType = 'hedges_g' | 'cohens_d' | 'a12' | 'cliffs_delta'
 type LegendPlacement = 'top' | 'bottom' | 'right' | 'inside' | 'none'
 type RankingScope = 'all-instances' | 'single-instance'
 type BoldMode = 'none' | 'all' | 'title-axes' | 'algorithms' | 'values' | 'title-algorithms'
 type TitleMode = 'top-full' | 'top-context' | 'top-params' | 'top-metric' | 'none'
 type LabelMode = 'all' | 'first' | 'second' | 'third' | 'ticks-only' | 'none'
+
+interface ChartTypeOption {
+  id: GraphType
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  title: string
+}
+
+const CHART_TYPE_OPTIONS: ChartTypeOption[] = [
+  // Row 1: Distribution & Baseline Ranking Plots (5 items)
+  {
+    id: 'boxplot',
+    label: 'Boxplot',
+    icon: Box,
+    title: 'Tukey boxplot showing median, IQR, whiskers, and individual data points',
+  },
+  {
+    id: 'violin',
+    label: 'Violin Plot',
+    icon: Activity,
+    title: 'Violin plot combining kernel density estimation with boxplot summary',
+  },
+  {
+    id: 'ecdf',
+    label: 'ECDF',
+    icon: TrendingUp,
+    title: 'Empirical Cumulative Distribution Function (ECDF) across algorithms',
+  },
+  {
+    id: 'barplot',
+    label: 'Mean ± SD Bar',
+    icon: BarChart2,
+    title: 'Mean ± SD Bar Chart computed by SAES backend',
+  },
+  {
+    id: 'critical-distance',
+    label: 'Critical Distance',
+    icon: GitCommitHorizontal,
+    title: 'Demšar (2006) Friedman + Nemenyi Critical Distance Diagram (computed by SAES backend)',
+  },
+
+  // Row 2: Advanced Multi-Algorithm & Bayesian Plots (5 items)
+  {
+    id: 'plackett-luce',
+    label: 'Plackett-Luce',
+    icon: Trophy,
+    title: 'Calvo et al. (2018) Bayesian Plackett-Luce joint multi-algorithm ranking (P(best) + 95% CrI)',
+  },
+  {
+    id: 'effect-size-forest',
+    label: 'Effect-Size Forest',
+    icon: SlidersHorizontal,
+    title: "Standardized Effect-Size Forest Plot (Hedges' g, Cohen's d, Vargha-Delaney A12, Cliff's δ) with exact 95% CIs",
+  },
+  {
+    id: 'bayesian-sign',
+    label: 'Bayes Sign',
+    icon: Sparkles,
+    title: 'Benavoli et al. (2017) Bayesian Sign Test Simplex (ROPE)',
+  },
+  {
+    id: 'bayesian-rank',
+    label: 'Bayes Signed-Rank',
+    icon: Sparkles,
+    title: 'Benavoli et al. (2017) Bayesian Signed-Rank Test Simplex (ROPE)',
+  },
+  {
+    id: 'bayesian-correlated-t',
+    label: 'Bayes Correlated t',
+    icon: LineChart,
+    title: 'Benavoli et al. (2017) / Nadeau & Bengio (2003) Bayesian Correlated t-Test Posterior Density',
+  },
+]
 
 interface PaperPreset {
   id: string
@@ -152,10 +251,18 @@ export const ChartWorkbench = ({
   apiOnline = true,
   selectedDatasetFilename,
   rawCsv,
+  initialGraphType,
+  initialMetric,
+  exploration: sharedExploration,
 }: ChartWorkbenchProps) => {
   const { theme } = useAppearance()
   const isDark = theme === 'dark'
-  const [graphType, setGraphType] = useState<GraphType>('boxplot')
+  const [graphType, setGraphType] = useState<GraphType>(() => {
+    if (initialGraphType && CHART_TYPE_OPTIONS.some((o) => o.id === initialGraphType)) {
+      return initialGraphType as GraphType
+    }
+    return 'boxplot'
+  })
   const [selectedPaletteId, setSelectedPaletteId] = useState<string>('academic')
   const [fontScale, setFontScale] = useState<number>(13)
   const [fontFamily, setFontFamily] = useState<string>('Inter, -apple-system, sans-serif')
@@ -171,13 +278,78 @@ export const ChartWorkbench = ({
   const [xTickAngle, setXTickAngle] = useState<string>('auto')
   const [rankingScope, setRankingScope] = useState<RankingScope>('all-instances')
   const [ropePercent, setRopePercent] = useState<number>(1.0)
+  const [ropeMode, setRopeMode] = useState<'relative' | 'absolute'>('relative')
+  const [ropeAbsolute, setRopeAbsolute] = useState<number>(0.01)
+  const [priorStrength, setPriorStrength] = useState<number>(1.0)
   const [selectedAlgoA, setSelectedAlgoA] = useState<string>('')
   const [selectedAlgoB, setSelectedAlgoB] = useState<string>('')
   const [rankingData, setRankingData] = useState<RankingAnalysisResponse | null>(null)
   const [isLoadingRanking, setIsLoadingRanking] = useState<boolean>(false)
   const [rankingError, setRankingError] = useState<string | null>(null)
+
+  // Effect-Size Forest Plot state
+  const [forestMetric, setForestMetric] = useState<ForestMetricType>('hedges_g')
+  const [forestScope, setForestScope] = useState<RankingScope>('single-instance')
+  const [forestReference, setForestReference] = useState<string>('')
+  const [forestPaired, setForestPaired] = useState<boolean>(false)
+  const [forestData, setForestData] = useState<EffectSizeForestResult | null>(null)
+  const [isLoadingForest, setIsLoadingForest] = useState<boolean>(false)
+  const [forestError, setForestError] = useState<string | null>(null)
+
+  // Bayesian Correlated t-test state (CV folds / paired observations)
+  const [corrTRho, setCorrTRho] = useState<string>('auto')
+  const [corrTRope, setCorrTRope] = useState<number>(0.01)
+  const [corrTScope, setCorrTScope] = useState<RankingScope>('single-instance')
+  const [corrTData, setCorrTData] = useState<BayesianCorrelatedTResult | null>(null)
+  const [isLoadingCorrT, setIsLoadingCorrT] = useState<boolean>(false)
+  const [corrTError, setCorrTError] = useState<string | null>(null)
+
+  // Exploration diagnostics for dataset-aware barplot stats & suitability guards
+  const [localExploration, setLocalExploration] = useState<DataExplorationResponse | null>(null)
+
   const [isExporting, setIsExporting] = useState(false)
   const chartRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!initialGraphType) return
+    const valid: GraphType[] = [
+      'boxplot',
+      'violin',
+      'ecdf',
+      'barplot',
+      'critical-distance',
+      'bayesian-sign',
+      'bayesian-rank',
+      'plackett-luce',
+      'effect-size-forest',
+      'bayesian-correlated-t',
+    ]
+    if (valid.includes(initialGraphType as GraphType)) {
+      setGraphType(initialGraphType as GraphType)
+    }
+  }, [initialGraphType])
+
+  useEffect(() => {
+    if (sharedExploration || !apiOnline || (!selectedDatasetFilename && !rawCsv)) return
+    let cancelled = false
+    const loadExplore = async () => {
+      try {
+        const res = selectedDatasetFilename
+          ? await apiClient.exploreDatasetFromPath(selectedDatasetFilename, { alpha })
+          : await apiClient.exploreDatasetFromCsv(rawCsv || '', { alpha })
+        if (!cancelled) setLocalExploration(res)
+      } catch {
+        // Non-blocking
+      }
+    }
+    loadExplore()
+    return () => {
+      cancelled = true
+    }
+  }, [sharedExploration, apiOnline, selectedDatasetFilename, rawCsv, alpha])
+
+  const effectiveExploration = sharedExploration ?? localExploration
+  const contextDiag = effectiveExploration?.context_diagnostics
 
   const activePreset = useMemo(
     () => PAPER_PRESETS.find((p) => p.id === presetId) || null,
@@ -198,14 +370,29 @@ export const ChartWorkbench = ({
   const metrics = useMemo(() => Array.from(new Set(records.map((r) => r.metric))), [records])
 
   const [selectedInstance, setSelectedInstance] = useState<string>('')
-  const [selectedMetric, setSelectedMetric] = useState<string>('')
+  const [selectedMetric, setSelectedMetric] = useState<string>(initialMetric || '')
   const [selectedRightMetric, setSelectedRightMetric] = useState<string>('none')
   const [leftColorIndex, setLeftColorIndex] = useState<number>(0)
   const [rightColorIndex, setRightColorIndex] = useState<number>(1)
 
+  useEffect(() => {
+    if (initialMetric && metrics.includes(initialMetric)) {
+      setSelectedMetric(initialMetric)
+    }
+  }, [initialMetric, metrics])
+
   const isDistributionChart = graphType === 'boxplot' || graphType === 'violin'
+  const isCellPlot =
+    graphType === 'boxplot' ||
+    graphType === 'violin' ||
+    graphType === 'ecdf' ||
+    graphType === 'barplot'
   const isBayesianChart = graphType === 'bayesian-sign' || graphType === 'bayesian-rank'
-  const isRankingChart = graphType === 'critical-distance' || isBayesianChart
+  const isRankingChart =
+    graphType === 'critical-distance' || isBayesianChart || graphType === 'plackett-luce'
+  const isForestChart = graphType === 'effect-size-forest'
+  const isCorrTChart = graphType === 'bayesian-correlated-t'
+  const isBackendComputedChart = isRankingChart || isForestChart || isCorrTChart
 
   const activeInstance = instances.includes(selectedInstance)
     ? selectedInstance
@@ -262,6 +449,10 @@ export const ChartWorkbench = ({
       setRankingError(null)
       try {
         let res: RankingAnalysisResponse
+        const resolvedRope = isBayesianChart && ropeMode === 'absolute' ? ropeAbsolute : undefined
+        const resolvedPrior = isBayesianChart ? priorStrength : undefined
+        const resolvedBayesMethod: 'sign' | 'signed-rank' =
+          graphType === 'bayesian-sign' ? 'sign' : 'signed-rank'
         if (selectedDatasetFilename) {
           res = await apiClient.getRankingFromPath(
             selectedDatasetFilename,
@@ -271,7 +462,10 @@ export const ChartWorkbench = ({
             activeInstance,
             ropePercent,
             selectedAlgoA || undefined,
-            selectedAlgoB || undefined
+            selectedAlgoB || undefined,
+            resolvedBayesMethod,
+            resolvedRope,
+            resolvedPrior
           )
         } else if (rawCsv) {
           res = await apiClient.getRankingFromCsv(
@@ -282,7 +476,11 @@ export const ChartWorkbench = ({
             activeInstance,
             ropePercent,
             selectedAlgoA || undefined,
-            selectedAlgoB || undefined
+            selectedAlgoB || undefined,
+            'data.csv',
+            resolvedBayesMethod,
+            resolvedRope,
+            resolvedPrior
           )
         } else {
           return
@@ -315,6 +513,11 @@ export const ChartWorkbench = ({
     rankingScope,
     activeInstance,
     ropePercent,
+    ropeMode,
+    ropeAbsolute,
+    priorStrength,
+    isBayesianChart,
+    graphType,
     selectedAlgoA,
     selectedAlgoB,
     apiOnline,
@@ -322,7 +525,109 @@ export const ChartWorkbench = ({
     rawCsv,
   ])
 
+  // Fetch Standardized Effect-Size Forest Plot data from SAES Backend API
+  useEffect(() => {
+    if (!isForestChart || !singleMetric || !apiOnline) return
+    let cancelled = false
+    const loadForest = async () => {
+      setIsLoadingForest(true)
+      setForestError(null)
+      try {
+        const params = {
+          metric: singleMetric,
+          scope: forestScope,
+          instance: forestScope === 'single-instance' ? activeInstance : undefined,
+          reference_algorithm: forestReference || undefined,
+          alpha,
+          paired: forestPaired,
+          p_adjust: 'holm',
+        }
+        const res = selectedDatasetFilename
+          ? await apiClient.getEffectSizesFromPath(selectedDatasetFilename, params)
+          : await apiClient.getEffectSizesFromCsv(rawCsv || '', params)
+        if (!cancelled) setForestData(res)
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const detail =
+            (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+            (err instanceof Error ? err.message : String(err))
+          setForestError(detail)
+        }
+      } finally {
+        if (!cancelled) setIsLoadingForest(false)
+      }
+    }
+    loadForest()
+    return () => {
+      cancelled = true
+    }
+  }, [
+    isForestChart,
+    singleMetric,
+    forestScope,
+    activeInstance,
+    forestReference,
+    forestPaired,
+    alpha,
+    apiOnline,
+    selectedDatasetFilename,
+    rawCsv,
+  ])
+
+  // Fetch Bayesian Correlated t-test Posterior Density from SAES Backend API
+  useEffect(() => {
+    if (!isCorrTChart || !singleMetric || !apiOnline) return
+    let cancelled = false
+    const loadCorrT = async () => {
+      setIsLoadingCorrT(true)
+      setCorrTError(null)
+      try {
+        const parsedRho = corrTRho === 'auto' ? undefined : Number(corrTRho)
+        const params = {
+          metric: singleMetric,
+          algo_a: selectedAlgoA || algorithms[0] || undefined,
+          algo_b: selectedAlgoB || algorithms[1] || undefined,
+          scope: corrTScope,
+          instance: corrTScope === 'single-instance' ? activeInstance : undefined,
+          rope: corrTRope,
+          rho: parsedRho !== undefined && !Number.isNaN(parsedRho) ? parsedRho : undefined,
+        }
+        const res = selectedDatasetFilename
+          ? await apiClient.getBayesianCorrelatedTFromPath(selectedDatasetFilename, params)
+          : await apiClient.getBayesianCorrelatedTFromCsv(rawCsv || '', params)
+        if (!cancelled) setCorrTData(res)
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const detail =
+            (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+            (err instanceof Error ? err.message : String(err))
+          setCorrTError(detail)
+        }
+      } finally {
+        if (!cancelled) setIsLoadingCorrT(false)
+      }
+    }
+    loadCorrT()
+    return () => {
+      cancelled = true
+    }
+  }, [
+    isCorrTChart,
+    singleMetric,
+    selectedAlgoA,
+    selectedAlgoB,
+    algorithms,
+    corrTScope,
+    activeInstance,
+    corrTRope,
+    corrTRho,
+    apiOnline,
+    selectedDatasetFilename,
+    rawCsv,
+  ])
+
   const cdResult = rankingData?.critical_distance || null
+  const plackettLuceResult = rankingData?.bayesian_plackett_luce || null
   const bayesianResult = useMemo(() => {
     if (!rankingData) return null
     if (graphType === 'bayesian-sign') {
@@ -516,6 +821,245 @@ export const ChartWorkbench = ({
         return traces
       }
 
+      case 'ecdf': {
+        return algorithms.map((algo, idx) => {
+          const values = filteredRecords.filter((r) => r.algorithm === algo).map((r) => r.value)
+          const color = activePalette[idx % activePalette.length]
+          return {
+            type: 'histogram',
+            name: algo,
+            x: values,
+            cumulative: { enabled: true },
+            histnorm: 'probability',
+            opacity: 0.45,
+            marker: { color, line: { color, width: 1.5 } },
+            hovertemplate: `<b>${algo}</b><br>${singleMetric}: %{x:.4f}<br>ECDF: %{y:.2%}<extra></extra>`,
+          } as unknown as Data
+        })
+      }
+
+      case 'barplot': {
+        const profiles = (effectiveExploration?.distribution_profiles || []).filter(
+          (p) => p.instance === activeInstance && p.metric === singleMetric
+        )
+        const profMap = new Map(profiles.map((p) => [p.algorithm, p]))
+        const xAlgos = algorithms.filter((a) => profMap.has(a))
+        const means = xAlgos.map((a) => profMap.get(a)?.mean ?? 0)
+        const stds = xAlgos.map((a) => profMap.get(a)?.std ?? 0)
+        const barColors = xAlgos.map((_, idx) => activePalette[idx % activePalette.length])
+        return [
+          {
+            type: 'bar',
+            name: `${singleMetric} (Mean ± SD)`,
+            x: xAlgos,
+            y: means,
+            error_y: {
+              type: 'data',
+              array: stds,
+              visible: true,
+              color: useLightCanvas ? '#334155' : '#cbd5e1',
+              thickness: 1.8,
+              width: 5,
+            },
+            marker: {
+              color: barColors,
+              line: { color: useLightCanvas ? '#1e293b' : '#f8fafc', width: 1 },
+            },
+            hovertemplate:
+              `<b>%{x}</b><br>Mean ${singleMetric}: %{y:.4f}<br>± SD: %{error_y.array:.4f}<extra></extra>`,
+          } as unknown as Data,
+        ]
+      }
+
+      case 'plackett-luce': {
+        if (!plackettLuceResult || plackettLuceResult.items.length === 0) return []
+        const algos = plackettLuceResult.items.map((it) => it.algorithm)
+        const colors = algos.map((_, idx) => activePalette[idx % activePalette.length])
+        return [
+          {
+            type: 'bar',
+            orientation: 'h',
+            xaxis: 'x',
+            yaxis: 'y',
+            y: algos,
+            x: plackettLuceResult.items.map((it) => it.prob_best),
+            text: plackettLuceResult.items.map((it) => `${(it.prob_best * 100).toFixed(1)}%`),
+            textposition: 'outside',
+            marker: {
+              color: colors,
+              line: { color: useLightCanvas ? '#1e293b' : '#e2e8f0', width: 1 },
+            },
+            name: 'P(Best)',
+            hovertemplate: '<b>%{y}</b><br>P(Best): %{x:.1%}<extra></extra>',
+          } as unknown as Data,
+          {
+            type: 'scatter',
+            mode: 'markers',
+            xaxis: 'x2',
+            yaxis: 'y',
+            y: algos,
+            x: plackettLuceResult.items.map((it) => it.expected_rank),
+            marker: {
+              size: 11,
+              color: colors,
+              line: { color: useLightCanvas ? '#0f172a' : '#f8fafc', width: 1.2 },
+            },
+            error_x: {
+              type: 'data',
+              symmetric: false,
+              array: plackettLuceResult.items.map((it) => it.rank_ci_upper - it.expected_rank),
+              arrayminus: plackettLuceResult.items.map((it) => it.expected_rank - it.rank_ci_lower),
+              color: useLightCanvas ? '#475569' : '#cbd5e1',
+              thickness: 2,
+              width: 5,
+            },
+            name: 'Expected Rank (95% CrI)',
+            hovertemplate: '<b>%{y}</b><br>E[Rank]: %{x:.2f}<extra></extra>',
+          } as unknown as Data,
+        ]
+      }
+
+      case 'effect-size-forest': {
+        if (!forestData || forestData.items.length === 0) return []
+        const isA12 = forestMetric === 'a12'
+        const nullVal = isA12 ? 0.5 : 0.0
+        const algos = forestData.items.map((it) => it.algorithm)
+        const vals = forestData.items.map((it) =>
+          forestMetric === 'hedges_g'
+            ? it.hedges_g
+            : forestMetric === 'cohens_d'
+              ? it.cohens_d
+              : forestMetric === 'a12'
+                ? it.a12
+                : it.cliffs_delta
+        )
+        const lowers = forestData.items.map((it) =>
+          forestMetric === 'hedges_g'
+            ? it.hedges_g_ci_lower
+            : forestMetric === 'cohens_d'
+              ? it.cohens_d_ci_lower
+              : forestMetric === 'a12'
+                ? it.a12_ci_lower
+                : it.cliffs_delta_ci_lower
+        )
+        const uppers = forestData.items.map((it) =>
+          forestMetric === 'hedges_g'
+            ? it.hedges_g_ci_upper
+            : forestMetric === 'cohens_d'
+              ? it.cohens_d_ci_upper
+              : forestMetric === 'a12'
+                ? it.a12_ci_upper
+                : it.cliffs_delta_ci_upper
+        )
+        const colors = forestData.items.map((it, i) => {
+          if (!it.is_significant) return '#64748b'
+          const delta = vals[i] - nullVal
+          const favorable = forestData.maximize ? delta > 0 : delta < 0
+          return favorable ? '#10b981' : '#e11d48'
+        })
+        const customdata = forestData.items.map((it, i) => [
+          lowers[i],
+          uppers[i],
+          it.p_adjusted,
+          isA12 ? it.a12_magnitude : it.cohens_d_magnitude,
+        ])
+        return [
+          {
+            type: 'scatter',
+            mode: 'markers',
+            y: algos,
+            x: vals,
+            customdata,
+            marker: {
+              size: 11,
+              color: colors,
+              line: { color: useLightCanvas ? '#0f172a' : '#f8fafc', width: 1.2 },
+            },
+            error_x: {
+              type: 'data',
+              symmetric: false,
+              array: uppers.map((u, i) => Math.max(0, u - vals[i])),
+              arrayminus: lowers.map((l, i) => Math.max(0, vals[i] - l)),
+              color: useLightCanvas ? '#334155' : '#cbd5e1',
+              thickness: 2.2,
+              width: 6,
+            },
+            hovertemplate:
+              `<b>%{y} vs ${forestData.reference_algorithm}</b><br>` +
+              `Estimate: <b>%{x:.3f}</b> [%{customdata[0]:.3f}, %{customdata[1]:.3f}]<br>` +
+              `Magnitude: %{customdata[3]} • p_adj = %{customdata[2]:.4f}<extra></extra>`,
+            showlegend: false,
+          } as unknown as Data,
+        ]
+      }
+
+      case 'bayesian-correlated-t': {
+        if (!corrTData || corrTData.curve_x.length === 0) return []
+        const { curve_x, curve_y, rope_low, rope_high, algo_a, algo_b } = corrTData
+        const leftX: number[] = []
+        const leftY: number[] = []
+        const ropeX: number[] = []
+        const ropeY: number[] = []
+        const rightX: number[] = []
+        const rightY: number[] = []
+        curve_x.forEach((x, i) => {
+          const y = curve_y[i] ?? 0
+          if (x <= rope_low) {
+            leftX.push(x)
+            leftY.push(y)
+          }
+          if (x >= rope_low && x <= rope_high) {
+            ropeX.push(x)
+            ropeY.push(y)
+          }
+          if (x >= rope_high) {
+            rightX.push(x)
+            rightY.push(y)
+          }
+        })
+        return [
+          {
+            type: 'scatter',
+            mode: 'lines',
+            name: `P(${algo_b} > ${algo_a}) = ${(corrTData.p_right * 100).toFixed(1)}%`,
+            x: leftX,
+            y: leftY,
+            fill: 'tozeroy',
+            fillcolor: 'rgba(225, 29, 72, 0.28)',
+            line: { color: '#e11d48', width: 1.5 },
+          } as unknown as Data,
+          {
+            type: 'scatter',
+            mode: 'lines',
+            name: `P(ROPE) = ${(corrTData.p_rope * 100).toFixed(1)}%`,
+            x: ropeX,
+            y: ropeY,
+            fill: 'tozeroy',
+            fillcolor: 'rgba(245, 158, 11, 0.35)',
+            line: { color: '#d97706', width: 1.5 },
+          } as unknown as Data,
+          {
+            type: 'scatter',
+            mode: 'lines',
+            name: `P(${algo_a} > ${algo_b}) = ${(corrTData.p_left * 100).toFixed(1)}%`,
+            x: rightX,
+            y: rightY,
+            fill: 'tozeroy',
+            fillcolor: 'rgba(16, 185, 129, 0.28)',
+            line: { color: '#10b981', width: 1.5 },
+          } as unknown as Data,
+          {
+            type: 'scatter',
+            mode: 'lines',
+            name: 'Posterior Student-t Density',
+            x: curve_x,
+            y: curve_y,
+            line: { color: useLightCanvas ? '#0f172a' : '#f8fafc', width: 2.2 },
+            hovertemplate: 'Δ = %{x:.4f}<br>Density = %{y:.3f}<extra></extra>',
+          } as unknown as Data,
+        ]
+      }
+
       case 'critical-distance': {
         if (!cdResult) return []
         const { ranks, cliques } = cdResult
@@ -645,6 +1189,12 @@ export const ChartWorkbench = ({
     useLightCanvas,
     cdResult,
     bayesianResult,
+    plackettLuceResult,
+    forestData,
+    forestMetric,
+    corrTData,
+    effectiveExploration,
+    activeInstance,
     activeMetric,
   ])
 
@@ -1033,7 +1583,193 @@ export const ChartWorkbench = ({
       }
     }
 
-    // ── Standard Layout (Boxplot & Violin Plot) ──
+    // ── Specialized Layout 3: Bayesian Plackett-Luce Dual-Panel Ranking (Calvo et al. 2018) ──
+    if (graphType === 'plackett-luce' && plackettLuceResult) {
+      const { titleObj, topMargin: plTopMargin } = buildTitleLayout(
+        `Metric: ${plackettLuceResult.metric}`,
+        `Bayesian Plackett-Luce Ranking (k=${plackettLuceResult.k}, N=${plackettLuceResult.n_blocks} blocks)`,
+        `MCMC/Bootstrap Samples = ${plackettLuceResult.num_samples}`,
+        fontScale
+      )
+      return {
+        width: figureWidth,
+        height: figureHeight,
+        autosize: false,
+        title: titleObj,
+        font: { family: fontFamily, size: fontScale, color: fgSecondary },
+        paper_bgcolor: useLightCanvas ? '#ffffff' : '#0f172a',
+        plot_bgcolor: useLightCanvas ? '#ffffff' : '#0f172a',
+        yaxis: {
+          autorange: 'reversed',
+          tickfont: { family: fontFamily, size: fontScale, color: fgPrimary },
+          automargin: true,
+        },
+        xaxis: {
+          domain: [0, 0.44],
+          title: { text: b('Posterior P(Best)', boldAxes), font: { size: fontScale, color: fgPrimary } },
+          range: [0, 1.15],
+          tickformat: '.0%',
+          gridcolor: gridColor,
+        },
+        xaxis2: {
+          domain: [0.54, 1.0],
+          title: {
+            text: b('Expected Rank (95% CrI, lower = better)', boldAxes),
+            font: { size: fontScale, color: fgPrimary },
+          },
+          range: [0.7, plackettLuceResult.k + 0.4],
+          gridcolor: gridColor,
+        },
+        showlegend: false,
+        margin: { l: 115, r: 28, t: plTopMargin, b: 64 },
+      }
+    }
+
+    // ── Specialized Layout 4: Standardized Effect-Size Forest Plot (95% CI) ──
+    if (graphType === 'effect-size-forest' && forestData) {
+      const metricTitles: Record<ForestMetricType, string> = {
+        hedges_g: "Hedges' g (95% Noncentral-t CI)",
+        cohens_d: "Cohen's d (95% Noncentral-t CI)",
+        a12: 'Vargha-Delaney A₁₂ (95% Logit CI)',
+        cliffs_delta: "Cliff's δ (95% Logit CI)",
+      }
+      const nullVal = forestMetric === 'a12' ? 0.5 : 0.0
+      const { titleObj, topMargin: forestTop } = buildTitleLayout(
+        `Effect-Size Forest: ${forestData.metric}`,
+        forestData.instance
+          ? `Instance: ${forestData.instance} vs ${forestData.reference_algorithm}`
+          : `All Instances vs ${forestData.reference_algorithm}`,
+        `${metricTitles[forestMetric]} • α = ${forestData.alpha}`,
+        fontScale
+      )
+      return {
+        width: figureWidth,
+        height: figureHeight,
+        autosize: false,
+        title: titleObj,
+        font: { family: fontFamily, size: fontScale, color: fgSecondary },
+        paper_bgcolor: useLightCanvas ? '#ffffff' : '#0f172a',
+        plot_bgcolor: useLightCanvas ? '#ffffff' : '#0f172a',
+        xaxis: {
+          title: { text: b(metricTitles[forestMetric], boldAxes), font: { size: fontScale, color: fgPrimary } },
+          gridcolor: gridColor,
+          zeroline: false,
+          ...(forestMetric === 'a12' ? { range: [0, 1] } : {}),
+        },
+        yaxis: {
+          autorange: 'reversed',
+          tickfont: { family: fontFamily, size: fontScale, color: fgPrimary },
+          automargin: true,
+        },
+        shapes: [
+          {
+            type: 'line',
+            x0: nullVal,
+            x1: nullVal,
+            y0: -0.5,
+            y1: Math.max(0.5, forestData.items.length - 0.5),
+            line: { color: '#ef4444', width: 1.8, dash: 'dash' },
+          },
+        ],
+        showlegend: false,
+        margin: { l: 120, r: 32, t: forestTop, b: 64 },
+      }
+    }
+
+    // ── Specialized Layout 5: Bayesian Correlated t-Test Posterior Density ──
+    if (graphType === 'bayesian-correlated-t' && corrTData) {
+      const { titleObj, topMargin: ctTop } = buildTitleLayout(
+        `Bayesian Correlated t-Test: ${corrTData.algo_a} vs ${corrTData.algo_b}`,
+        `Metric: ${singleMetric} (n=${corrTData.n_observations}, ρ=${corrTData.rho.toFixed(3)})`,
+        `ROPE = [${corrTData.rope_low}, ${corrTData.rope_high}] • Mean Δ = ${corrTData.mean_diff.toFixed(4)}`,
+        fontScale
+      )
+      const maxY = Math.max(...corrTData.curve_y, 0.1)
+      return {
+        width: figureWidth,
+        height: figureHeight,
+        autosize: false,
+        title: titleObj,
+        font: { family: fontFamily, size: fontScale, color: fgSecondary },
+        paper_bgcolor: useLightCanvas ? '#ffffff' : '#0f172a',
+        plot_bgcolor: useLightCanvas ? '#ffffff' : '#0f172a',
+        xaxis: {
+          title: {
+            text: b(`Mean Difference (${corrTData.algo_a} − ${corrTData.algo_b})`, boldAxes),
+            font: { size: fontScale, color: fgPrimary },
+          },
+          gridcolor: gridColor,
+        },
+        yaxis: {
+          title: { text: b('Posterior Density', boldAxes), font: { size: fontScale, color: fgPrimary } },
+          gridcolor: gridColor,
+          rangemode: 'tozero',
+        },
+        shapes: [
+          {
+            type: 'line',
+            x0: corrTData.rope_low,
+            x1: corrTData.rope_low,
+            y0: 0,
+            y1: maxY * 1.05,
+            line: { color: '#d97706', width: 1.8, dash: 'dash' },
+          },
+          {
+            type: 'line',
+            x0: corrTData.rope_high,
+            x1: corrTData.rope_high,
+            y0: 0,
+            y1: maxY * 1.05,
+            line: { color: '#d97706', width: 1.8, dash: 'dash' },
+          },
+        ],
+        legend: {
+          orientation: 'h',
+          x: 0.5,
+          xanchor: 'center',
+          y: -0.22,
+          yanchor: 'top',
+          font: { family: fontFamily, size: Math.max(10, fontScale - 1), color: fgPrimary },
+        },
+        showlegend: true,
+        margin: { l: 70, r: 32, t: ctTop, b: 96 },
+      }
+    }
+
+    // ── Specialized Layout 6: ECDF Cumulative Step Distribution ──
+    if (graphType === 'ecdf') {
+      const { titleObj, topMargin: ecdfTop } = buildTitleLayout(
+        `Empirical CDF (ECDF): ${singleMetric}`,
+        `Instance: ${activeInstance}`,
+        `α = ${alpha}`,
+        fontScale
+      )
+      return {
+        width: figureWidth,
+        height: figureHeight,
+        autosize: false,
+        barmode: 'overlay',
+        title: titleObj,
+        font: { family: fontFamily, size: fontScale, color: fgSecondary },
+        paper_bgcolor: useLightCanvas ? '#ffffff' : '#0f172a',
+        plot_bgcolor: useLightCanvas ? '#ffffff' : '#0f172a',
+        xaxis: {
+          title: { text: b(`${singleMetric} Value`, boldAxes), font: { size: fontScale, color: fgPrimary } },
+          gridcolor: gridColor,
+        },
+        yaxis: {
+          title: { text: b('Cumulative Probability F(x)', boldAxes), font: { size: fontScale, color: fgPrimary } },
+          range: [0, 1.04],
+          tickformat: '.0%',
+          gridcolor: gridColor,
+        },
+        legend: { orientation: 'h', x: 0.5, xanchor: 'center', y: 1.03, yanchor: 'bottom' },
+        showlegend: legendPlacement !== 'none',
+        margin: { l: 74, r: 32, t: ecdfTop + 26, b: 64 },
+      }
+    }
+
+    // ── Standard Layout (Boxplot, Violin & Mean±SD Barplot) ──
     const maxAlgoLen = algorithms.reduce((max, a) => Math.max(max, a.length), 0)
     const computedTickAngle: number | undefined =
       xTickAngle !== 'auto'
@@ -1269,6 +2005,10 @@ export const ChartWorkbench = ({
     xTickAngle,
     cdResult,
     bayesianResult,
+    plackettLuceResult,
+    forestData,
+    forestMetric,
+    corrTData,
     activePalette,
   ])
 
@@ -1322,79 +2062,41 @@ export const ChartWorkbench = ({
     <div className="space-y-4">
       {/* Chart Control Toolbar */}
       <div className="p-4 rounded-xl border border-border/70 bg-card/60 space-y-3.5">
-        {/* Row 1: Graph Type Switcher & Export Buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/50 pb-3">
-          <div className="flex flex-wrap items-center gap-1 bg-muted/60 p-1 rounded-lg">
-            <button
-              type="button"
-              onClick={() => setGraphType('boxplot')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                graphType === 'boxplot'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Box className="w-3.5 h-3.5" />
-              Boxplot
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setGraphType('violin')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                graphType === 'violin'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Activity className="w-3.5 h-3.5" />
-              Violin Plot
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setGraphType('critical-distance')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                graphType === 'critical-distance'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-              title="Demšar (2006) Friedman + Nemenyi Critical Distance Diagram (computed by SAES backend)"
-            >
-              <GitCommitHorizontal className="w-3.5 h-3.5" />
-              Critical Distance (CD)
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setGraphType('bayesian-sign')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                graphType === 'bayesian-sign'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-              title="Benavoli et al. (2017) Bayesian Sign Test Simplex (ROPE) — Dirichlet posterior on win/tie/loss sign counts (computed by SAES backend)"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              Bayesian Sign Test
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setGraphType('bayesian-rank')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                graphType === 'bayesian-rank'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-              title="Benavoli et al. (2017) Bayesian Signed-Rank Test Simplex (ROPE) — Dirichlet Process posterior weighted by difference magnitude (computed by SAES backend)"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              Bayesian Signed-Rank
-            </button>
+        {/* Row 1: Header (Title) + Smart 2-Row Chart Grid */}
+        <div className="space-y-2.5 border-b border-border/50 pb-3.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-foreground tracking-tight flex items-center gap-1.5">
+              <BarChart2 className="w-3.5 h-3.5 text-primary" />
+              Visualization Type
+            </span>
+            <span className="text-[11px] text-muted-foreground hidden sm:inline">
+              • Select chart format to render
+            </span>
           </div>
 
-          <ExportToolbar onExport={handleExportFigure} isExporting={isExporting} />
+          {/* Smart 2-Row Grid for all 10 Chart Types (5 per row on desktop) */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 bg-muted/60 p-1.5 rounded-xl border border-border/40">
+            {CHART_TYPE_OPTIONS.map((opt) => {
+              const isSelected = graphType === opt.id
+              const OptIcon = opt.icon
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setGraphType(opt.id)}
+                  className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer min-w-0 ${
+                    isSelected
+                      ? 'bg-primary text-primary-foreground shadow-xs font-semibold'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-background/70'
+                  }`}
+                  title={opt.title}
+                >
+                  <OptIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{opt.label}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* Row 2: Dataset Context, Color Palette & Typography */}
@@ -1537,18 +2239,154 @@ export const ChartWorkbench = ({
                 />
 
                 <SelectDropdown
-                  label="ROPE:"
-                  value={ropePercent}
+                  label="ROPE Mode:"
+                  value={ropeMode}
                   options={[
-                    { value: 0.1, label: '±0.1% (Ultra-Strict)' },
-                    { value: 0.5, label: '±0.5% (Strict)' },
-                    { value: 1.0, label: '±1.0% (Standard)' },
-                    { value: 2.0, label: '±2.0% (Moderate)' },
-                    { value: 5.0, label: '±5.0% (Wide)' },
+                    { value: 'relative', label: 'Relative (%)' },
+                    { value: 'absolute', label: 'Absolute (±Δ)' },
                   ]}
-                  onChange={(val) => setRopePercent(Number(val))}
-                  triggerClassName="min-w-[135px]"
+                  onChange={(val) => setRopeMode(val as 'relative' | 'absolute')}
                 />
+
+                {ropeMode === 'relative' ? (
+                  <SelectDropdown
+                    label="ROPE:"
+                    value={ropePercent}
+                    options={[
+                      { value: 0.1, label: '±0.1% (Ultra-Strict)' },
+                      { value: 0.5, label: '±0.5% (Strict)' },
+                      { value: 1.0, label: '±1.0% (Standard)' },
+                      { value: 2.0, label: '±2.0% (Moderate)' },
+                      { value: 5.0, label: '±5.0% (Wide)' },
+                    ]}
+                    onChange={(val) => setRopePercent(Number(val))}
+                    triggerClassName="min-w-[135px]"
+                  />
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-muted-foreground font-medium">±Δ:</span>
+                    <input
+                      type="number"
+                      step="0.005"
+                      min="0"
+                      value={ropeAbsolute}
+                      onChange={(e) => setRopeAbsolute(Math.max(0, Number(e.target.value) || 0))}
+                      className="h-8 w-20 rounded-md border border-input bg-background px-2 font-mono text-xs"
+                    />
+                  </div>
+                )}
+
+                <SelectDropdown
+                  label="Prior s:"
+                  value={priorStrength}
+                  options={[
+                    { value: 0.5, label: '0.5 (Weak)' },
+                    { value: 1.0, label: '1.0 (Standard)' },
+                    { value: 2.0, label: '2.0 (Conservative)' },
+                  ]}
+                  onChange={(val) => setPriorStrength(Number(val))}
+                />
+              </>
+            )}
+
+            {/* Effect-Size Forest Controls */}
+            {isForestChart && (
+              <>
+                <SelectDropdown
+                  label="Effect Metric:"
+                  value={forestMetric}
+                  options={[
+                    { value: 'hedges_g', label: "Hedges' g (95% CI)" },
+                    { value: 'cohens_d', label: "Cohen's d (95% CI)" },
+                    { value: 'a12', label: 'Vargha-Delaney A₁₂' },
+                    { value: 'cliffs_delta', label: "Cliff's δ" },
+                  ]}
+                  onChange={(val) => setForestMetric(val as ForestMetricType)}
+                />
+                <SelectDropdown
+                  label="Baseline:"
+                  value={forestReference}
+                  options={[
+                    { value: '', label: 'Auto (Best)' },
+                    ...algorithms.map((a) => ({ value: a, label: a })),
+                  ]}
+                  onChange={setForestReference}
+                  triggerClassName="font-mono"
+                />
+                {instances.length > 1 && (
+                  <SelectDropdown
+                    label="Scope:"
+                    value={forestScope}
+                    options={[
+                      { value: 'single-instance', label: 'Single Instance' },
+                      { value: 'all-instances', label: 'All Instances' },
+                    ]}
+                    onChange={(val) => setForestScope(val as RankingScope)}
+                  />
+                )}
+                <Button
+                  type="button"
+                  variant={forestPaired ? 'secondary' : 'outline'}
+                  size="sm"
+                  onClick={() => setForestPaired((p) => !p)}
+                  className="h-8 text-xs"
+                >
+                  {forestPaired ? 'Paired' : 'Independent'}
+                </Button>
+              </>
+            )}
+
+            {/* Bayesian Correlated t-Test Controls */}
+            {isCorrTChart && (
+              <>
+                <SelectDropdown
+                  label="Algo A:"
+                  value={selectedAlgoA || algorithms[0] || ''}
+                  options={algorithms.map((a) => ({ value: a, label: a }))}
+                  onChange={setSelectedAlgoA}
+                  triggerClassName="font-mono font-semibold"
+                />
+                <SelectDropdown
+                  label="Algo B:"
+                  value={selectedAlgoB || algorithms[1] || ''}
+                  options={algorithms.map((a) => ({ value: a, label: a }))}
+                  onChange={setSelectedAlgoB}
+                  triggerClassName="font-mono font-semibold"
+                />
+                <SelectDropdown
+                  label="CV Corr ρ:"
+                  value={corrTRho}
+                  options={[
+                    { value: 'auto', label: 'Auto (1/(n-1))' },
+                    { value: '0', label: '0.00 (Independent)' },
+                    { value: '0.111111', label: '1/9 (10-Fold CV)' },
+                    { value: '0.25', label: '1/4 (5-Fold CV)' },
+                    { value: '0.5', label: '1/2 (2-Fold CV)' },
+                  ]}
+                  onChange={setCorrTRho}
+                />
+                <div className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground font-medium">ROPE ±:</span>
+                  <input
+                    type="number"
+                    step="0.005"
+                    min="0"
+                    value={corrTRope}
+                    onChange={(e) => setCorrTRope(Math.max(0, Number(e.target.value) || 0))}
+                    className="h-8 w-20 rounded-md border border-input bg-background px-2 font-mono text-xs"
+                  />
+                </div>
+                {instances.length > 1 && (
+                  <SelectDropdown
+                    label="Scope:"
+                    value={corrTScope}
+                    options={[
+                      { value: 'single-instance', label: 'Single Instance (Folds/Runs)' },
+                      { value: 'all-instances', label: 'All Instances (Means)' },
+                    ]}
+                    onChange={(val) => setCorrTScope(val as RankingScope)}
+                  />
+                )}
               </>
             )}
 
@@ -1788,6 +2626,107 @@ export const ChartWorkbench = ({
         </div>
       </div>
 
+      {/* Backend Dataset-Aware Suitability & Warnings Banners */}
+      {contextDiag?.can_run_cell_tests === false && isCellPlot && (
+        <div className="px-4 py-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>
+            <strong>Single-Run Dataset (n = 1 per cell):</strong> Distribution plots (Boxplot /
+            Violin / ECDF) have only 1 point per algorithm–instance cell. Consider switching to{' '}
+            <strong>Critical Distance</strong>, <strong>Plackett-Luce</strong>, or{' '}
+            <strong>Bayesian Sign/Signed-Rank</strong> across instances.
+          </span>
+        </div>
+      )}
+
+      {(() => {
+        const activeWarnings = [
+          ...(graphType === 'critical-distance' ? cdResult?.warnings || [] : []),
+          ...(isBayesianChart ? bayesianResult?.warnings || [] : []),
+          ...(isForestChart ? forestData?.warnings || [] : []),
+        ]
+        if (activeWarnings.length === 0) return null
+        return (
+          <div className="px-4 py-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs space-y-1">
+            {activeWarnings.map((w, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <span>{w}</span>
+              </div>
+            ))}
+          </div>
+        )
+      })()}
+
+      {/* Statistical Summary Strip for Plackett-Luce / Forest / Bayesian Correlated t */}
+      {graphType === 'plackett-luce' && plackettLuceResult && plackettLuceResult.items[0] && (
+        <div className="px-4 py-2.5 rounded-lg border border-border/70 bg-card/70 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-4">
+            <span>
+              <strong className="text-foreground">Model (SAES Backend):</strong> Bayesian
+              Plackett-Luce (Calvo et al. 2018)
+            </span>
+            <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+              Top: {plackettLuceResult.items[0].algorithm} — P(Best) ={' '}
+              {(plackettLuceResult.items[0].prob_best * 100).toFixed(1)}%
+            </span>
+            <span className="font-mono text-muted-foreground">
+              E[Rank] = {plackettLuceResult.items[0].expected_rank.toFixed(2)} [
+              {plackettLuceResult.items[0].rank_ci_lower.toFixed(2)},{' '}
+              {plackettLuceResult.items[0].rank_ci_upper.toFixed(2)}]
+            </span>
+          </div>
+          <span className="text-muted-foreground">
+            Jointly models all k={plackettLuceResult.k} algorithms across N=
+            {plackettLuceResult.n_blocks} blocks; P(Best) sums strictly to 100%.
+          </span>
+        </div>
+      )}
+
+      {isForestChart && forestData && (
+        <div className="px-4 py-2.5 rounded-lg border border-border/70 bg-card/70 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-4">
+            <span>
+              <strong className="text-foreground">Baseline Reference:</strong>{' '}
+              <span className="font-mono font-bold text-primary">
+                {forestData.reference_algorithm}
+              </span>
+            </span>
+            <span>
+              <strong className="text-foreground">Significant Pairs (Holm):</strong>{' '}
+              <span className="font-mono font-semibold">
+                {forestData.items.filter((i) => i.is_significant).length} /{' '}
+                {forestData.items.length}
+              </span>
+            </span>
+          </div>
+          <span className="text-muted-foreground">
+            Emerald = significantly better than baseline • Rose = significantly worse • Slate = NS
+            (95% exact CIs).
+          </span>
+        </div>
+      )}
+
+      {isCorrTChart && corrTData && (
+        <div className="px-4 py-2.5 rounded-lg border border-border/70 bg-card/70 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-4 font-mono">
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+              P({corrTData.algo_a} &gt; {corrTData.algo_b}) = {(corrTData.p_left * 100).toFixed(1)}%
+            </span>
+            <span className="font-semibold text-amber-600 dark:text-amber-400">
+              P(ROPE) = {(corrTData.p_rope * 100).toFixed(1)}%
+            </span>
+            <span className="font-semibold text-rose-600 dark:text-rose-400">
+              P({corrTData.algo_b} &gt; {corrTData.algo_a}) = {(corrTData.p_right * 100).toFixed(1)}%
+            </span>
+            <span className="text-muted-foreground">
+              ρ = {corrTData.rho.toFixed(3)} • df = {corrTData.degrees_of_freedom}
+            </span>
+          </div>
+          <span className="text-muted-foreground">{corrTData.interpretation}</span>
+        </div>
+      )}
+
       {/* Statistical Summary Strip for Critical Distance / Bayesian Rank Tests */}
       {graphType === 'critical-distance' && cdResult && (
         <div className="px-4 py-2.5 rounded-lg border border-border/70 bg-card/70 flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -1854,34 +2793,40 @@ export const ChartWorkbench = ({
 
       {/* WYSIWYG Scientific Paper Figure Stage */}
       <div className="rounded-xl border border-border/70 bg-muted/30 p-4 sm:p-6 shadow-inner overflow-x-auto">
-        {/* Stage Header Info Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3 text-[11px] text-muted-foreground font-mono">
-          <div className="flex items-center gap-2">
+        {/* Stage Header: Figure Info & Export Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-3 border-b border-border/50 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-muted-foreground font-mono text-[11px]">
             <span className="inline-block w-2 h-2 rounded-full bg-primary" />
             <span className="font-semibold text-foreground">
               {activePreset ? activePreset.label : 'Custom Proportion'}
             </span>
             <span>•</span>
             <span>{activePreset ? activePreset.ratioLabel : `Ratio ${aspectDecimal}:1`}</span>
+            <span className="hidden md:inline">•</span>
+            <span className="hidden md:inline">
+              Canvas: {figureWidth} × {figureHeight} px (~{mmWidth} × {mmHeight} mm) • 300 DPI
+            </span>
           </div>
-          <div>
-            Canvas: {figureWidth} × {figureHeight} px (~{mmWidth} × {mmHeight} mm) • Export @ 300
-            DPI ({figureWidth * 3} × {figureHeight * 3} px)
-          </div>
+
+          <ExportToolbar onExport={handleExportFigure} isExporting={isExporting} />
         </div>
 
         {/* Centered Paper Sheet Preview */}
         <div className="flex justify-center items-center min-h-[380px] py-2">
-          {isRankingChart && isLoadingRanking && !rankingData ? (
+          {(isRankingChart && isLoadingRanking && !rankingData) ||
+          (isForestChart && isLoadingForest && !forestData) ||
+          (isCorrTChart && isLoadingCorrT && !corrTData) ? (
             <div className="flex flex-col items-center justify-center h-80 gap-2 text-muted-foreground text-xs">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
-              <span>Computing statistical ranks in SAES backend...</span>
+              <span>Computing statistical model in SAES backend...</span>
             </div>
-          ) : isRankingChart && rankingError ? (
+          ) : (isRankingChart && rankingError) ||
+            (isForestChart && forestError) ||
+            (isCorrTChart && corrTError) ? (
             <div className="flex flex-col items-center justify-center h-80 gap-2 text-rose-500 text-xs max-w-md text-center">
-              <span>{rankingError}</span>
+              <span>{rankingError || forestError || corrTError}</span>
             </div>
-          ) : filteredRecords.length > 0 || rightFilteredRecords.length > 0 ? (
+          ) : isBackendComputedChart || filteredRecords.length > 0 || rightFilteredRecords.length > 0 ? (
             <div
               className="rounded-md border border-border/80 shadow-md transition-all duration-150 overflow-hidden shrink-0"
               style={{

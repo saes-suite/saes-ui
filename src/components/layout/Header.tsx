@@ -122,17 +122,17 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Zoom Range Slider Control */}
             <div
               className="flex items-center gap-1 sm:gap-1.5 rounded-lg border border-border bg-card px-2 sm:px-2.5 shadow-xs h-9 shrink-0 select-none"
-              title={`Zoom: ${localZoom}% (clic en el porcentaje para restablecer al 100%)`}
+              title={`Zoom: ${localZoom}% (click percentage to reset to 100%)`}
               role="group"
-              aria-label="Control de zoom"
+              aria-label="Zoom control"
             >
               <button
                 type="button"
                 onClick={zoomOut}
                 disabled={zoom <= MIN_ZOOM}
                 className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer shrink-0"
-                title={`Disminuir zoom (-${ZOOM_STEP}%)`}
-                aria-label="Disminuir zoom"
+                title={`Zoom out (-${ZOOM_STEP}%)`}
+                aria-label="Zoom out"
               >
                 <ZoomOut className="w-3.5 h-3.5" />
               </button>
@@ -175,8 +175,8 @@ export const Header: React.FC<HeaderProps> = ({
                   } as React.CSSProperties
                 }
                 className="zoom-slider w-[72px] sm:w-[88px] md:w-[100px] cursor-pointer"
-                title={`Nivel de zoom: ${localZoom}%`}
-                aria-label="Barra deslizante de zoom"
+                title={`Zoom level: ${localZoom}%`}
+                aria-label="Zoom slider"
               />
 
               <button
@@ -184,8 +184,8 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={zoomIn}
                 disabled={zoom >= MAX_ZOOM}
                 className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted/60 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer shrink-0"
-                title={`Aumentar zoom (+${ZOOM_STEP}%)`}
-                aria-label="Aumentar zoom"
+                title={`Zoom in (+${ZOOM_STEP}%)`}
+                aria-label="Zoom in"
               >
                 <ZoomIn className="w-3.5 h-3.5" />
               </button>
@@ -194,8 +194,8 @@ export const Header: React.FC<HeaderProps> = ({
                 type="button"
                 onClick={resetZoom}
                 className="text-[11px] font-mono font-medium text-muted-foreground hover:text-primary hover:bg-muted/60 rounded px-1 py-0.5 transition-colors cursor-pointer select-none tabular-nums shrink-0 min-w-[34px] text-center"
-                title="Restablecer zoom al 100%"
-                aria-label="Restablecer zoom al 100%"
+                title="Reset zoom to 100%"
+                aria-label="Reset zoom to 100%"
               >
                 {localZoom}%
               </button>

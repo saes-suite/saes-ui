@@ -140,20 +140,25 @@ AlgoB,Benchmark_2,Score,0,0.874,true
 AlgoB,Benchmark_2,Score,1,0.869,true
 AlgoB,Benchmark_2,Score,2,0.881,true`
 
-export const PYTHON_API_SNIPPET = `import saesV2
+export const PYTHON_API_SNIPPET = `import saes
 
 # 1. Load & validate a tidy long-format benchmark CSV
-df, report = saesV2.load_and_validate("example_metaheuristics.csv")
-assert report.is_valid
+dataset = saes.load("example_metaheuristics.csv")
+assert saes.validate(dataset).is_valid
 
-# 2. Run automated assumption checks & statistical analysis
-analysis = saesV2.analyze(df, alpha=0.05)
+# 2. Automated cell-level analysis (independent runs by default; paired=True for CV folds)
+report = saes.analyze(dataset, alpha=0.05, generate_plots=False, paired=False)
+print(report.to_dataframe().head())
 
-# 3. Inspect omnibus & pairwise post-hoc results
-print(analysis.summary())
+# 3. Blocked multi-instance ranking (Friedman+Nemenyi & Bayesian Plackett-Luce)
+cd = saes.statistics.friedman_nemenyi(dataset, metric="Fitness", alpha=0.05)
+pl = saes.statistics.bayesian_plackett_luce(dataset, metric="Fitness")
+print(cd.summary())
+print(pl.summary())
 
-# 4. Generate publication-ready Critical Distance & Boxplot figures
-saesV2.plot_critical_distance(df, metric="Fitness", output="cd_diagram.pdf")`
+# 4. Standardized Effect-Size Forest (95% CIs) & publication SVG export
+forest = saes.statistics.effect_size_forest(dataset, metric="Fitness", instance="Sphere")
+svg_bytes, _, _ = saes.export_plot(dataset, plot_type="critical-distance", metric="Fitness", export_format="svg")`
 
 // Deterministic pseudo-random helper so example datasets are reproducible
 function seededNoise(seed: number): number {

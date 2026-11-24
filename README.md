@@ -2,136 +2,82 @@
   <img src="public/saes-logo.svg" alt="SAES Logo" width="128" />
 </p>
 
-# SAES-UI — Web Frontend for SAES
+# SAES-UI — Web & Desktop Frontend for SAES
 
 > **Stochastic Algorithm Evaluation Suite (SAES)**  
-> Publication-grade interactive workbench for automated statistical analysis, hypothesis testing, diagnostic validation, and data visualization.
+> Thin-client publication-grade interactive workbench for frequentist, exact Bayesian, equivalence (TOST), power/sensitivity (MDES), and Dolan–Moré meta-benchmark analysis — backed 100% by the `saes` (`:8060`) and `saes-ai` (`:8070`) Python REST APIs.
 
 ---
 
-## 🏛️ Architecture Overview
+## 🏛️ Architecture Overview (API-First & Thin Client)
 
-`saes-ui` is designed as a **modern, dual-target client** that operates in two primary environments:
+`saes-ui` performs **zero statistical or domain computation in TypeScript**. All assumption checks, hypothesis tests, post-hoc adjustments, Bayesian posteriors, effect-size confidence intervals, dataset capability guards, and exports are computed by `saes` (`:8060`), while conversational AI interpretation is served by `saes-ai` (`:8070`).
 
 1. **Standalone Single Page Application (Web SPA)**:
-   - Zero-install, browser-based execution.
-   - HTML5 drag-and-drop CSV parser with instant schema inspection.
-   - Communicates with `saesV2` FastAPI REST server (`http://127.0.0.1:8060`) and `saes-ai` (`http://127.0.0.1:8070`).
-   - Client-side fallback engine enabling fully interactive exploration even in offline demo mode.
+   - Zero-install browser interface (`http://localhost:1420`).
+   - Drag-and-drop CSV inspection, column-mapping wizard, and interactive row fixer.
+   - Communicates directly with `saes` (`:8060`) and `saes-ai` (`:8070`).
 
 2. **Native Lightweight Desktop Application (Umbrella Tauri v2)**:
-   - Bundled by the umbrella repository's **Tauri v2** wrapper (`../src-tauri/`) producing a native binary (`.app` / `.dmg` on macOS, `.exe` on Windows, `.deb` / `.AppImage` on Linux) together with the unified `saes-backend` sidecar.
-   - Native OS file picker dialogs via `@tauri-apps/plugin-dialog`.
-   - Native filesystem access via `@tauri-apps/plugin-fs`.
-   - System window dimensions (1400x900 default, 1280x800 minimum) with desktop shell integration.
+   - Bundled by the umbrella repository's **Tauri v2** wrapper (`../src-tauri/`) with the unified `saes-backend` sidecar.
+   - Native file dialogs (`@tauri-apps/plugin-dialog`) and filesystem access (`@tauri-apps/plugin-fs`).
+
+---
+
+## ✨ Workspace Capabilities
+
+- **Data & Assumptions (`DataTable.tsx`)**: Multi-metric side-by-side pivot, Shapiro–Wilk / **Lilliefors KS** / **Anderson–Darling** normality diagnostics, Brown–Forsythe Levene variance checks, backend dataset design-capability indicators (`can_run_cell_tests`, `can_run_blocked_omnibus`), and dataset-aware test recommendations that route directly to the relevant tab/mode.
+- **Statistical Workbench (`StatsTable.tsx`)**:
+  - Explicit **Independent Runs vs. Paired (CRN / Matched Folds)** design toggle (`paired=false` default) and backend suitability badges on test selectors.
+  - Supports **Brunner–Munzel**, **Friedman Aligned-Ranks**, **Quade**, **RM-ANOVA (GG $\varepsilon$)**, plus all **13 multiplicity adjustments** (Holm, Bonferroni, Hochberg, Hommel, Finner, Holland, Rom, Li, BH, BY, Shaffer, Bergmann–Hommel, None).
+  - Blocked Multi-Instance Omnibus Suite panel in **Global Rankings** and a dedicated **Post-Hoc Lab** tab (Auto, **Tukey HSD**, **Games–Howell**, **Dunnett**, **Dunn**, **Conover–Iman** with 95% CIs & CSV export).
+  - Publication table export in LaTeX (`booktabs`), Vector PDF (live themed preview), DOCX, CSV, Markdown, and HTML.
+- **Visualizations (`ChartWorkbench.tsx`)**: All **10 publication chart types** organized by category (**Distributions**: Boxplot, Violin, ECDF, Mean $\pm$ SD Bar; **Rankings**: Critical Distance, **Bayesian Plackett–Luce**, **Effect-Size Forest (95% CI)**; **Bayesian**: Bayes Sign, Bayes Signed-Rank with relative/absolute ROPE & prior strength, **Bayesian Correlated $t$-test**), WYSIWYG journal aspect-ratio presets, and 300-DPI PNG / SVG export.
+- **Benchmark Profiles (`PerformanceProfilesWorkspace.tsx`)**: Dolan–Moré $\rho(\tau)$ step curves, Copeland meta-rankings, and multiplicity-adjusted Win/Tie/Loss matrix with paired/independent toggle.
+- **Power, Sensitivity & Equivalence (`PowerAnalysisWorkspace.tsx`)**: A priori sample size planning, power curves, post-hoc power audit, **MDES sensitivity audit** (Hoenig & Heisey 2001), and interactive **TOST Equivalence Calculator** with Plotly $(1-2\alpha)$ equivalence interval chart.
+- **Code & Reproducibility (`ReproducibilityWorkspace.tsx`)**: Standalone Python script, Jupyter Notebook (`.ipynb`), and FAIR SHA-256 environment manifest (including `statsmodels_version`).
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Framework & Tooling**: [Vite](https://vitejs.dev/) + [React 18](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) (strict mode enabled).
-- **Desktop Runtime**: **Tauri v2** (`@tauri-apps/api`, `@tauri-apps/plugin-dialog`, `@tauri-apps/plugin-fs`, Rust 2021).
-- **Styling & UI Kit**: [Tailwind CSS](https://tailwindcss.com/) + Radix UI Primitives (shadcn/ui design language) + [Lucide Icons](https://lucide.dev/).
-- **Data Tables**: [`@tanstack/react-table`](https://tanstack.com/table) for sortable, filterable, and paginated benchmark data inspection.
-- **Charts & Plotting**: [`plotly.js-dist-min`](https://plotly.com/javascript/) for publication-quality distribution plots (boxplots, violins, bar charts with 95% CIs, ECDFs, scatter runs) with customizable scientific palettes and 300 DPI exports (PNG, SVG, PDF).
-- **Math & AI Chatbot**: `react-markdown` + `remark-math` + `rehype-katex` + KaTeX for rendering mathematical formulas ($p < 0.001$, $F(2, 27) = 14.8$, effect sizes $\eta^2$ and Cohen's $d$).
-- **State & Data Fetching**: TanStack Query (`@tanstack/react-query`) and Axios typed client communicating with `saesV2` (`:8060`) and `saes-ai` (`:8070`).
-
----
-
-## 📁 Repository Structure
-
-```
-saes-ui/
-├── .github/
-│   └── workflows/
-│       ├── test.yml             # Linting, TypeScript typechecking & web build
-│       └── release.yml          # Automated changelog & version release stamp
-├── src/
-│   ├── api/                     # Typed client for saesV2 & saes-ai endpoints
-│   │   ├── client.ts            # Axios HTTP client with connection configurator
-│   │   └── types.ts             # TypeScript interfaces mirroring backend schemas
-│   ├── components/
-│   │   ├── layout/              # Header, Sidebar, Navigation, SettingsModal
-│   │   ├── data/                # FileUploader, ValidationReport, DataTable
-│   │   ├── stats/               # StatsTable, AssumptionBadges, EffectSizeCard, AssumptionDrawer
-│   │   ├── charts/              # PlotlyChart, PaletteSelector, ExportToolbar, ChartWorkbench
-│   │   └── chat/                # ChatDrawer, ChatMessage, QuickChips, MathRenderer
-│   │   └── ui/                  # Radix UI / shadcn design system primitives
-│   ├── data/                    # Built-in sample benchmark dataset (NSGA-II vs MOEA/D)
-│   ├── hooks/                   # useAnalysis, useTauri, useChat
-│   ├── lib/                     # utils (cn), statistical calculations & diagnostics
-│   ├── styles/                  # Tailwind CSS & KaTeX styling
-│   ├── App.tsx                  # Main application dashboard layout
-│   └── main.tsx                 # React entry point
-├── package.json
-├── tsconfig.json
-├── vite.config.ts
-├── tailwind.config.ts
-├── Makefile                     # make install, make dev, make desktop, make build, etc.
-└── README.md
-```
+- **Framework & Tooling**: [Vite 6](https://vitejs.dev/) + [React 18](https://react.dev/) + [TypeScript 5.7](https://www.typescriptlang.org/) (strict mode).
+- **Desktop Runtime**: **Tauri v2** (`@tauri-apps/api`, `@tauri-apps/plugin-dialog`, `@tauri-apps/plugin-fs`).
+- **Styling & UI**: [Tailwind CSS](https://tailwindcss.com/) + Radix UI Primitives + [Lucide Icons](https://lucide.dev/).
+- **Data Tables & Plots**: `@tanstack/react-table` + `plotly.js-dist-min`.
+- **Math & AI Streaming**: `react-markdown` + `remark-math` + `rehype-katex` + KaTeX + Axios.
 
 ---
 
 ## ⚡ Quick Start & Development Commands
 
-All standard development tasks are orchestrated via the `Makefile`:
-
 ```bash
-# 1. Install frontend dependencies via pnpm
+# Install frontend dependencies via pnpm
 make install
 
-# 2. Launch web development server (Vite at http://localhost:1420)
+# Launch web development server (http://localhost:1420)
 make dev
 
-# 3. Build production static web SPA into dist/
+# Build production static web SPA into dist/
 make build-web
 
-# 4. Run ESLint checks
+# Run ESLint, strict TypeScript typecheck, and full CI gate
 make lint
-
-# 5. Run TypeScript strict typechecking (tsc --noEmit)
 make typecheck
-
-# 6. Run CI quality gate (lint + typecheck)
 make ci
 ```
 
-> To launch or build the native Tauri desktop app, run `make start-desktop` or `make build-desktop` from the umbrella root (`../`).
+> To launch or build the full stack or native Tauri desktop app, run `make start`, `make start-desktop`, or `make build-desktop` from the umbrella root (`../`).
 
 ---
 
-## 🔌 API Integration with `saesV2.server` & `saes-ai`
+## 🔌 Backend API Integration
 
-`saes-ui` interacts with the FastAPI servers in `../saesV2` (`:8060`) and `../saes-ai` (`:8070`, or mounted on `:8060` in the desktop sidecar):
-
-| Endpoint | Method | Service | Description |
-|---|---|---|---|
-| `/health` | `GET` | `saesV2` / `saes-ai` | Verifies service status and API version. |
-| `/api/v1/validate` | `POST` | `saesV2` (`:8060`) | Validates CSV against required 6-column schema and reports structural issues. |
-| `/api/v1/analyze` | `POST` | `saesV2` (`:8060`) | Executes automated hypothesis testing, Welch/Student decisions, ANOVA, and effect sizes. |
-| `/api/v1/ranking`, `/tables`, `/explore`, `/profiles`, `/power`, `/reproducibility` | `POST` | `saesV2` (`:8060`) | Statistical tables, ranking, exploration, performance profiles, power analysis, and FAIR artifacts. |
-| `/api/v1/chat`, `/api/v1/chat/stream` | `POST` | `saes-ai` (`:8070`) | Queries the AI statistical consultant with dataset context and inline artifact streaming. |
-
-To launch the backend servers locally:
-```bash
-cd ../saesV2 && make start-api   # runs uvicorn on port 8060
-cd ../saes-ai && make start-api  # runs uvicorn on port 8070
-```
-
----
-
-## 🔬 Scientific Methodology & Decision Rules
-
-SAES follows rigorous statistical principles for stochastic algorithm evaluation:
-- **Normality Check**: Shapiro-Wilk test evaluated per algorithm group ($p > \alpha$).
-- **Homogeneity of Variance**: Levene's test (Brown-Forsythe).
-- **Test Selection**:
-  - Two groups, normal + equal variances: **Student's $t$-test**.
-  - Two groups, normal + unequal variances: **Welch's $t$-test** (Satterthwaite df adjustment).
-  - Three or more groups, equal variances: **Fisher's One-Way ANOVA**.
-  - Three or more groups, unequal variances: **Welch's ANOVA**.
-- **Practical Effect Sizes**:
-  - Cohen's $d$ for pairwise comparisons: negligible ($<0.2$), small ($0.2-0.5$), medium ($0.5-0.8$), large ($\ge 0.8$).
-  - $\eta^2$ for ANOVA omnibus: negligible ($<0.01$), small ($0.01-0.06$), medium ($0.06-0.14$), large ($\ge 0.14$).
+| Endpoints | Service | Purpose |
+| :--- | :--- | :--- |
+| `/health` | `saes` / `saes-ai` | Health check and live version reporting |
+| `/api/v1/validate`, `/explore`, `/analyze` | `saes` (`:8060`) | Schema validation, normality diagnostics, dataset-aware recommendations, and automated testing |
+| `/api/v1/ranking`, `/tables`, `/tables/export`, `/plots/export` | `saes` (`:8060`) | Blocked omnibus tests, Bayesian simplex & Plackett–Luce, publication tables, and figure export |
+| `/api/v1/posthoc`, `/tost`, `/bayesian/correlated-ttest`, `/effect-sizes` | `saes` (`:8060`) | Post-Hoc Lab, TOST equivalence, Bayesian Correlated $t$-test, and Effect-Size Forest (95% CIs) |
+| `/api/v1/profiles`, `/power`, `/reproducibility` | `saes` (`:8060`) | Dolan–Moré profiles, power/MDES sensitivity, and FAIR reproducibility packs |
+| `/api/v1/chat`, `/api/v1/chat/stream` | `saes-ai` (`:8070`) | Conversational statistical assistant with live tool-call & artifact streaming |

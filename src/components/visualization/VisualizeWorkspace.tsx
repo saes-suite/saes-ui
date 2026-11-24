@@ -20,6 +20,7 @@ import { ReproducibilityWorkspace } from '../reproducibility/ReproducibilityWork
 import {
   AnalysisResponse,
   BenchmarkRecord,
+  DataExplorationResponse,
   DatasetSummary,
   StatisticalTestType,
   TableType,
@@ -81,14 +82,25 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
   const [workbenchTableType, setWorkbenchTableType] = useState<TableType | undefined>(
     initialTableType
   )
+  const [workbenchStatsViewMode, setWorkbenchStatsViewMode] = useState<
+    'instance_algorithm' | 'pairwise_matrix' | 'omnibus_posthoc' | 'posthoc_lab' | undefined
+  >(initialTableType)
   const [workbenchMetric, setWorkbenchMetric] = useState<string | undefined>(initialMetric)
+  const [workbenchChartType, setWorkbenchChartType] = useState<string | undefined>(undefined)
+  const [workbenchPowerSubTab, setWorkbenchPowerSubTab] = useState<
+    'planning' | 'curves' | 'audit' | 'sensitivity_tost' | undefined
+  >(undefined)
+  const [sharedExploration, setSharedExploration] = useState<DataExplorationResponse | null>(null)
 
   useEffect(() => {
     if (initialTestType !== undefined) setWorkbenchTestType(initialTestType)
   }, [initialTestType])
 
   useEffect(() => {
-    if (initialTableType !== undefined) setWorkbenchTableType(initialTableType)
+    if (initialTableType !== undefined) {
+      setWorkbenchTableType(initialTableType)
+      setWorkbenchStatsViewMode(initialTableType)
+    }
   }, [initialTableType])
 
   useEffect(() => {
@@ -98,11 +110,33 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
   const handleSelectRecommendedTest = (
     testId: StatisticalTestType,
     tableType: TableType,
-    metric?: string
+    metric?: string,
+    targetTab?: string,
+    targetMode?: string
   ) => {
+    if (metric) setWorkbenchMetric(metric)
+    if (targetTab === 'charts') {
+      setWorkbenchChartType(targetMode || 'bayesian-rank')
+      setActiveTab('charts')
+      return
+    }
+    if (targetTab === 'power') {
+      setWorkbenchPowerSubTab(
+        targetMode === 'tost' || targetMode === 'sensitivity_tost'
+          ? 'sensitivity_tost'
+          : 'planning'
+      )
+      setActiveTab('power')
+      return
+    }
+    if (targetMode === 'posthoc_lab') {
+      setWorkbenchStatsViewMode('posthoc_lab')
+      setActiveTab('stats')
+      return
+    }
     setWorkbenchTestType(testId)
     setWorkbenchTableType(tableType)
-    if (metric) setWorkbenchMetric(metric)
+    setWorkbenchStatsViewMode(tableType)
     setActiveTab('stats')
   }
 
@@ -237,6 +271,7 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
             selectedDatasetFilename={selectedDatasetFilename || filename}
             rawCsv={rawCsv}
             onSelectRecommendedTest={handleSelectRecommendedTest}
+            onExplorationLoaded={setSharedExploration}
           />
         </TabsContent>
 
@@ -251,7 +286,9 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
             rawCsv={rawCsv}
             initialTestType={workbenchTestType}
             initialTableType={workbenchTableType}
+            initialViewMode={workbenchStatsViewMode}
             initialMetric={workbenchMetric}
+            exploration={sharedExploration}
           />
         </TabsContent>
 
@@ -263,6 +300,9 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
             apiOnline={apiOnline}
             selectedDatasetFilename={selectedDatasetFilename || filename}
             rawCsv={rawCsv}
+            initialGraphType={workbenchChartType}
+            initialMetric={workbenchMetric}
+            exploration={sharedExploration}
           />
         </TabsContent>
 
@@ -293,6 +333,9 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
             apiOnline={apiOnline}
             selectedDatasetFilename={selectedDatasetFilename || filename}
             rawCsv={rawCsv}
+            initialSubTab={workbenchPowerSubTab}
+            initialMetric={workbenchMetric}
+            exploration={sharedExploration}
           />
         </TabsContent>
 

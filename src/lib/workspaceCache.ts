@@ -12,8 +12,14 @@ const reproducibilityCache = new Map<string, ReproducibilityResponse>()
 /**
  * Generate a cache key for Dolan-Moré performance profiles
  */
-export function getProfilesCacheKey(datasetId: string, metric: string, alpha: number): string {
-  return `profiles:${datasetId}:${metric}:${alpha}`
+export function getProfilesCacheKey(
+  datasetId: string,
+  metric: string,
+  alpha: number,
+  paired: boolean = false,
+  posthocCorrection: string = 'holm'
+): string {
+  return `profiles:${datasetId}:${metric}:${alpha}:${paired}:${posthocCorrection}`
 }
 
 export function getCachedProfiles(key: string): PerformanceProfilesResponse | undefined {
@@ -32,9 +38,10 @@ export function getPowerCacheKey(
   metric: string,
   alpha: number,
   targetPower: number,
-  targetEffectSize: number
+  targetEffectSize: number,
+  paired: boolean = false
 ): string {
-  return `power:${datasetId}:${metric}:${alpha}:${targetPower}:${targetEffectSize}`
+  return `power:${datasetId}:${metric}:${alpha}:${targetPower}:${targetEffectSize}:${paired}`
 }
 
 export function getCachedPower(key: string): PowerAnalysisResponse | undefined {
