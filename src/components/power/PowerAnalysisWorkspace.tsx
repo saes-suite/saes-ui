@@ -1065,7 +1065,9 @@ export const PowerAnalysisWorkspace: React.FC<PowerAnalysisWorkspaceProps> = ({
                       step="0.01"
                       min="0.0001"
                       value={tostEqBound}
-                      onChange={(e) => setTostEqBound(Math.max(0.0001, Number(e.target.value) || 0.05))}
+                      onChange={(e) =>
+                        setTostEqBound(Math.max(0.0001, Number(e.target.value) || 0.05))
+                      }
                       className="h-9 w-full rounded-lg border border-input bg-background px-3 font-mono text-xs"
                     />
                   </div>
@@ -1117,13 +1119,12 @@ export const PowerAnalysisWorkspace: React.FC<PowerAnalysisWorkspaceProps> = ({
                         </Badge>
                         <span className="font-mono font-semibold">
                           p_TOST ={' '}
-                          {tostResult.p_value < 0.0001
-                            ? '< 0.0001'
-                            : tostResult.p_value.toFixed(4)}
+                          {tostResult.p_value < 0.0001 ? '< 0.0001' : tostResult.p_value.toFixed(4)}
                         </span>
                         <span className="font-mono">
-                          • Δ = {tostResult.mean_diff.toFixed(4)} ({(1 - 2 * tostResult.alpha) * 100}
-                          % CI [{tostResult.ci_lower.toFixed(4)}, {tostResult.ci_upper.toFixed(4)}])
+                          • Δ = {tostResult.mean_diff.toFixed(4)} (
+                          {(1 - 2 * tostResult.alpha) * 100}% CI [{tostResult.ci_lower.toFixed(4)},{' '}
+                          {tostResult.ci_upper.toFixed(4)}])
                         </span>
                       </div>
                       <span className="font-mono text-[11px]">

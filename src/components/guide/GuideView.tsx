@@ -307,7 +307,8 @@ export const GuideView: React.FC<GuideViewProps> = ({
               Official Documentation
             </div>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Explore the full Python API, mathematical specifications, and tutorials hosted on GitHub Pages.
+              Explore the full Python API, mathematical specifications, and tutorials hosted on
+              GitHub Pages.
             </p>
             <a
               href="https://saes-suite.github.io/saes/"
@@ -890,7 +891,7 @@ export const GuideView: React.FC<GuideViewProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2.5">
+                  <div className="space-y-2.5">
                     <BoxplotMiniSvg />
                     <div>
                       <div className="text-xs font-semibold text-foreground">
@@ -1010,7 +1011,9 @@ export const GuideView: React.FC<GuideViewProps> = ({
                     {PYTHON_API_SNIPPET}
                   </pre>
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-border/60 text-xs">
-                    <span className="text-muted-foreground">Looking for detailed Python docstrings &amp; API references?</span>
+                    <span className="text-muted-foreground">
+                      Looking for detailed Python docstrings &amp; API references?
+                    </span>
                     <a
                       href="https://saes-suite.github.io/saes/"
                       target="_blank"
