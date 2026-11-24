@@ -113,13 +113,15 @@ const CHART_TYPE_OPTIONS: ChartTypeOption[] = [
     id: 'plackett-luce',
     label: 'Plackett-Luce',
     icon: Trophy,
-    title: 'Calvo et al. (2018) Bayesian Plackett-Luce joint multi-algorithm ranking (P(best) + 95% CrI)',
+    title:
+      'Calvo et al. (2018) Bayesian Plackett-Luce joint multi-algorithm ranking (P(best) + 95% CrI)',
   },
   {
     id: 'effect-size-forest',
     label: 'Effect-Size Forest',
     icon: SlidersHorizontal,
-    title: "Standardized Effect-Size Forest Plot (Hedges' g, Cohen's d, Vargha-Delaney A12, Cliff's δ) with exact 95% CIs",
+    title:
+      "Standardized Effect-Size Forest Plot (Hedges' g, Cohen's d, Vargha-Delaney A12, Cliff's δ) with exact 95% CIs",
   },
   {
     id: 'bayesian-sign',
@@ -137,7 +139,8 @@ const CHART_TYPE_OPTIONS: ChartTypeOption[] = [
     id: 'bayesian-correlated-t',
     label: 'Bayes Correlated t',
     icon: LineChart,
-    title: 'Benavoli et al. (2017) / Nadeau & Bengio (2003) Bayesian Correlated t-Test Posterior Density',
+    title:
+      'Benavoli et al. (2017) / Nadeau & Bengio (2003) Bayesian Correlated t-Test Posterior Density',
   },
 ]
 
@@ -865,8 +868,7 @@ export const ChartWorkbench = ({
               color: barColors,
               line: { color: useLightCanvas ? '#1e293b' : '#f8fafc', width: 1 },
             },
-            hovertemplate:
-              `<b>%{x}</b><br>Mean ${singleMetric}: %{y:.4f}<br>± SD: %{error_y.array:.4f}<extra></extra>`,
+            hovertemplate: `<b>%{x}</b><br>Mean ${singleMetric}: %{y:.4f}<br>± SD: %{error_y.array:.4f}<extra></extra>`,
           } as unknown as Data,
         ]
       }
@@ -1606,7 +1608,10 @@ export const ChartWorkbench = ({
         },
         xaxis: {
           domain: [0, 0.44],
-          title: { text: b('Posterior P(Best)', boldAxes), font: { size: fontScale, color: fgPrimary } },
+          title: {
+            text: b('Posterior P(Best)', boldAxes),
+            font: { size: fontScale, color: fgPrimary },
+          },
           range: [0, 1.15],
           tickformat: '.0%',
           gridcolor: gridColor,
@@ -1651,7 +1656,10 @@ export const ChartWorkbench = ({
         paper_bgcolor: useLightCanvas ? '#ffffff' : '#0f172a',
         plot_bgcolor: useLightCanvas ? '#ffffff' : '#0f172a',
         xaxis: {
-          title: { text: b(metricTitles[forestMetric], boldAxes), font: { size: fontScale, color: fgPrimary } },
+          title: {
+            text: b(metricTitles[forestMetric], boldAxes),
+            font: { size: fontScale, color: fgPrimary },
+          },
           gridcolor: gridColor,
           zeroline: false,
           ...(forestMetric === 'a12' ? { range: [0, 1] } : {}),
@@ -1701,7 +1709,10 @@ export const ChartWorkbench = ({
           gridcolor: gridColor,
         },
         yaxis: {
-          title: { text: b('Posterior Density', boldAxes), font: { size: fontScale, color: fgPrimary } },
+          title: {
+            text: b('Posterior Density', boldAxes),
+            font: { size: fontScale, color: fgPrimary },
+          },
           gridcolor: gridColor,
           rangemode: 'tozero',
         },
@@ -1754,11 +1765,17 @@ export const ChartWorkbench = ({
         paper_bgcolor: useLightCanvas ? '#ffffff' : '#0f172a',
         plot_bgcolor: useLightCanvas ? '#ffffff' : '#0f172a',
         xaxis: {
-          title: { text: b(`${singleMetric} Value`, boldAxes), font: { size: fontScale, color: fgPrimary } },
+          title: {
+            text: b(`${singleMetric} Value`, boldAxes),
+            font: { size: fontScale, color: fgPrimary },
+          },
           gridcolor: gridColor,
         },
         yaxis: {
-          title: { text: b('Cumulative Probability F(x)', boldAxes), font: { size: fontScale, color: fgPrimary } },
+          title: {
+            text: b('Cumulative Probability F(x)', boldAxes),
+            font: { size: fontScale, color: fgPrimary },
+          },
           range: [0, 1.04],
           tickformat: '.0%',
           gridcolor: gridColor,
@@ -2717,7 +2734,8 @@ export const ChartWorkbench = ({
               P(ROPE) = {(corrTData.p_rope * 100).toFixed(1)}%
             </span>
             <span className="font-semibold text-rose-600 dark:text-rose-400">
-              P({corrTData.algo_b} &gt; {corrTData.algo_a}) = {(corrTData.p_right * 100).toFixed(1)}%
+              P({corrTData.algo_b} &gt; {corrTData.algo_a}) = {(corrTData.p_right * 100).toFixed(1)}
+              %
             </span>
             <span className="text-muted-foreground">
               ρ = {corrTData.rho.toFixed(3)} • df = {corrTData.degrees_of_freedom}
@@ -2826,7 +2844,9 @@ export const ChartWorkbench = ({
             <div className="flex flex-col items-center justify-center h-80 gap-2 text-rose-500 text-xs max-w-md text-center">
               <span>{rankingError || forestError || corrTError}</span>
             </div>
-          ) : isBackendComputedChart || filteredRecords.length > 0 || rightFilteredRecords.length > 0 ? (
+          ) : isBackendComputedChart ||
+            filteredRecords.length > 0 ||
+            rightFilteredRecords.length > 0 ? (
             <div
               className="rounded-md border border-border/80 shadow-md transition-all duration-150 overflow-hidden shrink-0"
               style={{

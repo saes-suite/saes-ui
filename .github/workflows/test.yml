@@ -33,6 +33,9 @@ jobs:
       - name: Run ESLint
         run: pnpm run lint
 
+      - name: Check Prettier Formatting
+        run: pnpm prettier --check "src/**/*.{ts,tsx,css,json}"
+
       - name: Run Typecheck
         run: pnpm run typecheck
 

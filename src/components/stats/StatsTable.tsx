@@ -77,10 +77,7 @@ interface StatsTableProps {
 }
 
 type WorkbenchViewMode =
-  | 'instance_algorithm'
-  | 'pairwise_matrix'
-  | 'omnibus_posthoc'
-  | 'posthoc_lab'
+  'instance_algorithm' | 'pairwise_matrix' | 'omnibus_posthoc' | 'posthoc_lab'
 type PostHocMethodId = 'auto' | 'tukey_hsd' | 'games_howell' | 'dunnett' | 'dunn' | 'conover_iman'
 type InstanceTableLens = 'value_symbol' | 'symbol_only' | 'rank_only'
 type PairwiseViewLens = 'case_by_case' | 'general_summary'
@@ -707,9 +704,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
     setPosthocError(null)
     try {
       const safeAdjust =
-        posthocAdjust === 'shaffer' || posthocAdjust === 'bergmann_hommel'
-          ? 'holm'
-          : posthocAdjust
+        posthocAdjust === 'shaffer' || posthocAdjust === 'bergmann_hommel' ? 'holm' : posthocAdjust
       const params = {
         metric: activeMetric,
         instance: activePosthocInstance || undefined,
@@ -1103,9 +1098,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
               triggerClassName="h-9 font-medium"
             />
             <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
-              <p className="truncate">
-                {TEST_OPTIONS.find((o) => o.value === testType)?.desc}
-              </p>
+              <p className="truncate">{TEST_OPTIONS.find((o) => o.value === testType)?.desc}</p>
               <button
                 type="button"
                 onClick={() => setPairedDesign((prev) => !prev)}
@@ -2129,8 +2122,8 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                   <span className="text-primary font-mono">{tableData.reference_algorithm}</span>)
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Average Friedman ranks, z-statistics, adjusted p-values (Holm / Bonferroni), global
-                  Wilcoxon Signed-Rank p-values, and Bayesian P(Best).
+                  Average Friedman ranks, z-statistics, adjusted p-values (Holm / Bonferroni),
+                  global Wilcoxon Signed-Rank p-values, and Bayesian P(Best).
                 </p>
               </div>
 

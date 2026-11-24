@@ -122,9 +122,7 @@ export const VisualizeWorkspace: React.FC<VisualizeWorkspaceProps> = ({
     }
     if (targetTab === 'power') {
       setWorkbenchPowerSubTab(
-        targetMode === 'tost' || targetMode === 'sensitivity_tost'
-          ? 'sensitivity_tost'
-          : 'planning'
+        targetMode === 'tost' || targetMode === 'sensitivity_tost' ? 'sensitivity_tost' : 'planning'
       )
       setActiveTab('power')
       return
