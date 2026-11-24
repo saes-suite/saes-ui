@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [Released]
+
+## [0.4.0] — 2026-11-24 (@rorro6787)
+
 ### Added
 
 - Full thin-client UI integration and dataset-aware intelligence powered by `saes` 2.0 REST APIs:
@@ -18,8 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Performance Profiles (`PerformanceProfilesWorkspace.tsx`) & Reproducibility (`ReproducibilityWorkspace.tsx`)**: Added Paired Design toggle and W/T/L multiplicity adjustment selector for Dolan–Moré profiles, aligned toolbar controls (`Metric`, `W/T/L Adj`, `Paired`, `Copy Summary`) at the same height as the left subtabs flush right, moved the `Refresh` button to the subtitle/citation row, and displayed `statsmodels_version` in the FAIR Environment Manifest.
   - **Power, Sensitivity & Equivalence (`PowerAnalysisWorkspace.tsx`)**: Added Paired Design toggle, a new **Sensitivity (MDES) & TOST** tab with MDES sensitivity audits and interactive TOST equivalence calculator, aligned top controls (`Metric`, `Paired Design`) at the same height as the subtabs flush right, and moved the `Recalculate` button to the subtitle/status row.
   - **Tutorial & Documentation (`GuideView.tsx`, `GuideSampleData.ts`)**: Indexed direct links to the official SAES documentation on GitHub Pages (`https://saes-suite.github.io/saes/`) across the Hero banner, left navigation sidebar, and Python API section, and updated all Python API snippets to `import saes` (`saes >= 2.0.0`).
-
-## [Released]
 
 ## [0.3.3] — 2026-11-20 (@rorro6787)
 
