@@ -3,6 +3,7 @@ import {
   BenchmarkRecord,
   PerformanceProfilesResponse,
   GlobalMetaRankingItem,
+  PostHocCorrectionType,
 } from '../../api/types'
 import { apiClient } from '../../api/client'
 import { getProfilesCacheKey, getCachedProfiles, setCachedProfiles } from '../../lib/workspaceCache'
@@ -26,6 +27,7 @@ import {
   Download,
   FileSpreadsheet,
   Image as ImageIcon,
+  Link2,
 } from 'lucide-react'
 
 interface PerformanceProfilesWorkspaceProps {
@@ -59,6 +61,8 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<ProfileSubTab>('curves')
   const [selectedMetric, setSelectedMetric] = useState<string | undefined>(undefined)
+  const [pairedDesign, setPairedDesign] = useState<boolean>(false)
+  const [posthocCorrection, setPosthocCorrection] = useState<PostHocCorrectionType>('holm')
   const [isLogScale, setIsLogScale] = useState(false)
   const [copiedSummary, setCopiedSummary] = useState(false)
   const [chartEl, setChartEl] = useState<HTMLDivElement | null>(null)
@@ -73,8 +77,8 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
 
   const datasetId = selectedDatasetFilename || (rawCsv ? `csv-${rawCsv.length}` : 'default')
   const cacheKey = useMemo(
-    () => getProfilesCacheKey(datasetId, targetMetric, alpha),
-    [datasetId, targetMetric, alpha]
+    () => getProfilesCacheKey(datasetId, targetMetric, alpha, pairedDesign, posthocCorrection),
+    [datasetId, targetMetric, alpha, pairedDesign, posthocCorrection]
   )
 
   const [data, setData] = useState<PerformanceProfilesResponse | null>(
@@ -102,11 +106,15 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
           res = await apiClient.getPerformanceProfilesFromPath(selectedDatasetFilename, {
             metric: targetMetric,
             alpha,
+            paired: pairedDesign,
+            posthoc_correction: posthocCorrection,
           })
         } else if (rawCsv) {
           res = await apiClient.getPerformanceProfilesFromCsv(rawCsv, {
             metric: targetMetric,
             alpha,
+            paired: pairedDesign,
+            posthoc_correction: posthocCorrection,
           })
         } else {
           setError('No dataset or observations available.')
@@ -121,7 +129,16 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
         setLoading(false)
       }
     },
-    [apiOnline, cacheKey, selectedDatasetFilename, rawCsv, targetMetric, alpha]
+    [
+      apiOnline,
+      cacheKey,
+      selectedDatasetFilename,
+      rawCsv,
+      targetMetric,
+      alpha,
+      pairedDesign,
+      posthocCorrection,
+    ]
   )
 
   useEffect(() => {
@@ -274,55 +291,54 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
       {/* 1. Header & Navigation Controls */}
       <div className="rounded-2xl border border-border/80 bg-card shadow-xs p-5 space-y-4">
         {/* Top View Subtabs + Actions Row (Matches Statistical Workbench design) */}
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pb-4 border-b border-border/60">
-          <div className="flex flex-wrap items-center gap-2">
+        {/* Top View Subtabs + Actions Row */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-border/60">
+          <div className="inline-flex items-center p-1 rounded-xl bg-muted/60 border border-border/60 gap-1 overflow-x-auto max-w-full shrink-0">
             <button
               type="button"
               onClick={() => setActiveSubTab('curves')}
-              title="Dolan-Moré step function curves evaluating solver efficiency and robustness"
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              title="Dolan-Moré step function curves evaluating solver efficiency and robustness (ρ(τ) Profile)"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                 activeSubTab === 'curves'
                   ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
               <TrendingUp className="w-3.5 h-3.5" />
               <span>Curves &amp; Top Solver</span>
-              <span className="text-[10px] opacity-75 font-normal">(ρ(τ) Profile)</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveSubTab('rankings')}
               title="Global meta-rankings summary based on efficiency, robustness and Copeland score"
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                 activeSubTab === 'rankings'
                   ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
               <Trophy className="w-3.5 h-3.5" />
               <span>Global Meta-Rankings</span>
-              <span className="text-[10px] opacity-75 font-normal">(Copeland &amp; Eff.)</span>
             </button>
 
             <button
               type="button"
               onClick={() => setActiveSubTab('wtl_matrix')}
               title="Head-to-head Win / Tie / Loss pairwise matrix across all instances"
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                 activeSubTab === 'wtl_matrix'
                   ? 'bg-primary text-primary-foreground shadow-xs'
-                  : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
               <Scale className="w-3.5 h-3.5" />
               <span>Pairwise W/T/L Matrix</span>
-              <span className="text-[10px] opacity-75 font-normal">(Head-to-Head)</span>
             </button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Controls at the same height as the left buttons */}
+          <div className="flex items-center justify-end gap-2 ml-auto shrink-0">
             {/* Metric Selector */}
             {availableMetrics.length > 1 && (
               <SelectDropdown
@@ -333,6 +349,37 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
                 triggerClassName="h-8 font-mono font-medium"
               />
             )}
+
+            {/* W/T/L Multiplicity Correction */}
+            <SelectDropdown
+              label="W/T/L Adj:"
+              value={posthocCorrection}
+              options={[
+                { value: 'holm', label: 'Holm (FWER)' },
+                { value: 'bonferroni', label: 'Bonferroni' },
+                { value: 'hochberg', label: 'Hochberg' },
+                { value: 'hommel', label: 'Hommel' },
+                { value: 'finner', label: 'Finner' },
+                { value: 'fdr_bh', label: 'BH (FDR)' },
+                { value: 'fdr_by', label: 'BY (FDR)' },
+                { value: 'none', label: 'Unadjusted' },
+              ]}
+              onChange={(val) => setPosthocCorrection(val as PostHocCorrectionType)}
+              triggerClassName="h-8 text-xs font-medium"
+            />
+
+            {/* Paired Design Toggle */}
+            <Button
+              type="button"
+              variant={pairedDesign ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={() => setPairedDesign((p) => !p)}
+              className="h-8 gap-1.5 text-xs rounded-lg"
+              title="Use paired W/T/L tests only when runs share matched seeds (CRN) or identical CV folds"
+            >
+              <Link2 className="w-3.5 h-3.5" />
+              {pairedDesign ? 'Paired' : 'Independent'}
+            </Button>
 
             {/* Copy Summary */}
             <Button
@@ -350,24 +397,11 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
               )}
               {copiedSummary ? 'Copied' : 'Copy Summary'}
             </Button>
-
-            {/* Refresh */}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => fetchData(true)}
-              disabled={loading}
-              className="h-8 gap-1.5 text-xs rounded-lg"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
           </div>
         </div>
 
-        {/* Subtitle & Method Citation */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-muted-foreground">
+        {/* Subtitle, Method Citation & Refresh Action */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-muted-foreground pt-1">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-foreground">
               Dolan &amp; Moré (2002) Benchmarking Framework
@@ -375,9 +409,26 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
             <span>•</span>
             <span>Significance level α = {alpha}</span>
           </div>
-          <Badge variant="outline" className="text-[11px] font-mono w-fit bg-muted/40">
-            {data ? `${data.curves.length} Algorithms Evaluated` : 'Analyzing'}
-          </Badge>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <Badge variant="outline" className="text-[11px] font-mono w-fit bg-muted/40">
+              {data ? `${data.curves.length} Algorithms Evaluated` : 'Analyzing'}
+            </Badge>
+
+            {/* Refresh Button placed here */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => fetchData(true)}
+              disabled={loading}
+              className="h-7 px-2.5 gap-1.5 text-xs rounded-lg cursor-pointer"
+              title="Refresh and recalculate performance profiles"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -483,7 +534,7 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
                     </h4>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-wrap items-center justify-end gap-2 ml-auto w-full xl:w-auto">
                     {/* Log Scale Toggle */}
                     <Button
                       type="button"
@@ -564,7 +615,7 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
                   variant="outline"
                   size="sm"
                   onClick={handleExportRankingsCsv}
-                  className="h-8 text-xs gap-1.5 rounded-lg"
+                  className="h-8 text-xs gap-1.5 rounded-lg ml-auto shrink-0"
                   title="Download CSV table of global meta rankings"
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
@@ -655,7 +706,7 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
                     Head-to-Head Win / Tie / Loss Pairwise Matrix
                   </h4>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 ml-auto shrink-0 justify-end">
                   <span className="text-xs text-muted-foreground hidden sm:inline">
                     Format: Net (+Wins / =Ties / -Losses)
                   </span>
@@ -664,7 +715,7 @@ export const PerformanceProfilesWorkspace: React.FC<PerformanceProfilesWorkspace
                     variant="outline"
                     size="sm"
                     onClick={handleExportMatrixCsv}
-                    className="h-8 text-xs gap-1.5 rounded-lg"
+                    className="h-8 text-xs gap-1.5 rounded-lg shrink-0"
                     title="Download CSV table of pairwise W/T/L matrix"
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />

@@ -4,6 +4,7 @@ import {
   BenchmarkTableCell,
   BenchmarkTableInstanceRow,
   CellAnalysis,
+  DataExplorationResponse,
   LatexDocumentMode,
   LatexNotation,
   PairwiseMatrixCell,
@@ -11,6 +12,8 @@ import {
   PdfOrientation,
   PdfTheme,
   PostHocCorrectionType,
+  PostHocResult,
+  RankingAnalysisResponse,
   StatisticalTableQueryParams,
   StatisticalTableResponse,
   StatisticalTestType,
@@ -19,6 +22,7 @@ import {
   TableType,
 } from '../../api/types'
 import { apiClient } from '../../api/client'
+import { exportToCsv } from '../../lib/exportUtils'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
@@ -37,9 +41,11 @@ import {
   FileSpreadsheet,
   FileText,
   Filter,
+  FlaskConical,
   Grid,
   Layers,
   Layout,
+  Link2,
   Loader2,
   Palette,
   RefreshCw,
@@ -64,11 +70,18 @@ interface StatsTableProps {
   rawCsv?: string
   initialTestType?: StatisticalTestType
   initialTableType?: TableType
+  initialViewMode?: WorkbenchViewMode
   initialMetric?: string
+  exploration?: DataExplorationResponse | null
   onExportCsv?: () => void
 }
 
-type WorkbenchViewMode = 'instance_algorithm' | 'pairwise_matrix' | 'omnibus_posthoc'
+type WorkbenchViewMode =
+  | 'instance_algorithm'
+  | 'pairwise_matrix'
+  | 'omnibus_posthoc'
+  | 'posthoc_lab'
+type PostHocMethodId = 'auto' | 'tukey_hsd' | 'games_howell' | 'dunnett' | 'dunn' | 'conover_iman'
 type InstanceTableLens = 'value_symbol' | 'symbol_only' | 'rank_only'
 type PairwiseViewLens = 'case_by_case' | 'general_summary'
 
@@ -136,8 +149,26 @@ const TEST_OPTIONS: {
   },
   {
     value: 'friedman',
-    shortLabel: 'Friedman + Post-Hoc',
-    desc: 'Multi-algorithm repeated measures omnibus test with post-hoc comparisons.',
+    shortLabel: 'Friedman + Post-Hoc (Blocked)',
+    desc: 'Tie-corrected multi-algorithm blocked rank omnibus test across benchmark instances.',
+    group: 'Non-Parametric',
+  },
+  {
+    value: 'friedman_aligned',
+    shortLabel: 'Friedman Aligned-Ranks (Hodges-Lehmann)',
+    desc: 'Block-aligned multi-instance omnibus test; higher power than standard Friedman when k ≤ 5.',
+    group: 'Non-Parametric',
+  },
+  {
+    value: 'quade',
+    shortLabel: 'Quade Weighted-Block Test',
+    desc: 'Range-weighted non-parametric blocked omnibus test emphasizing high-spread instances.',
+    group: 'Non-Parametric',
+  },
+  {
+    value: 'brunner_munzel',
+    shortLabel: 'Brunner-Munzel Test (Stochastic Eq.)',
+    desc: 'Rank-based stochastic equality test robust to unequal variances and shapes (Behrens-Fisher).',
     group: 'Non-Parametric',
   },
   {
@@ -151,6 +182,12 @@ const TEST_OPTIONS: {
     shortLabel: 'Kruskal-Wallis H Test',
     desc: 'Non-parametric alternative to ANOVA for independent multi-group comparisons.',
     group: 'Non-Parametric',
+  },
+  {
+    value: 'rm_anova',
+    shortLabel: 'Repeated-Measures ANOVA (Greenhouse-Geisser ε)',
+    desc: 'Parametric blocked omnibus F-test across matched instances with sphericity correction.',
+    group: 'Parametric',
   },
   {
     value: 'ttest_rel',
@@ -184,35 +221,122 @@ const TEST_OPTIONS: {
   },
 ]
 
+const POSTHOC_METHOD_OPTIONS: { value: PostHocMethodId; label: string; desc: string }[] = [
+  {
+    value: 'auto',
+    label: 'Auto (Assumption-Driven)',
+    desc: 'Selects Tukey HSD (normal+homoscedastic), Games-Howell (normal+heteroscedastic), or Dunn (non-normal).',
+  },
+  {
+    value: 'tukey_hsd',
+    label: 'Tukey HSD (Parametric, Equal Var)',
+    desc: 'Studentized range all-pairs parametric test with simultaneous 95% CIs.',
+  },
+  {
+    value: 'games_howell',
+    label: 'Games-Howell (Parametric, Unequal Var)',
+    desc: 'Welch-Satterthwaite heteroscedastic parametric post-hoc with exact studentized range CIs.',
+  },
+  {
+    value: 'dunnett',
+    label: "Dunnett's Test (Many-to-One vs Control)",
+    desc: 'Higher-power parametric comparison of every algorithm against a single reference baseline.',
+  },
+  {
+    value: 'dunn',
+    label: "Dunn's Test (Non-Parametric Ranks)",
+    desc: 'Rank-sum post-hoc following Kruskal-Wallis with tie correction and FWER/FDR adjustment.',
+  },
+  {
+    value: 'conover_iman',
+    label: 'Conover-Iman (Non-Parametric t-Ranks)',
+    desc: 'Higher-power Student-t rank post-hoc following a significant Kruskal-Wallis omnibus test.',
+  },
+]
+
 const CORRECTION_OPTIONS: {
   value: PostHocCorrectionType
   shortLabel: string
   desc: string
+  vectorSafe?: boolean
 }[] = [
   {
     value: 'holm',
     shortLabel: 'Holm-Bonferroni (Recommended)',
-    desc: 'Step-down procedure with strong FWER control and higher statistical power.',
+    desc: 'Step-down procedure with strong FWER control and uniformly higher power than Bonferroni.',
+    vectorSafe: true,
   },
   {
     value: 'bonferroni',
     shortLabel: 'Bonferroni-Dunn (Strict FWER)',
-    desc: 'Conservative correction dividing alpha by total number of comparisons.',
+    desc: 'Conservative single-step correction multiplying p-values by total comparisons m.',
+    vectorSafe: true,
+  },
+  {
+    value: 'hochberg',
+    shortLabel: 'Hochberg (Step-Up FWER)',
+    desc: 'Step-up procedure more powerful than Holm under independence/PRDS.',
+    vectorSafe: true,
+  },
+  {
+    value: 'hommel',
+    shortLabel: 'Hommel (Closed Step-Up FWER)',
+    desc: 'Closed-testing Simes procedure uniformly at least as powerful as Hochberg.',
+    vectorSafe: true,
+  },
+  {
+    value: 'finner',
+    shortLabel: 'Finner (Step-Down Geometric)',
+    desc: 'Widely recommended in metaheuristics benchmarks (García et al. 2010).',
+    vectorSafe: true,
+  },
+  {
+    value: 'holland',
+    shortLabel: 'Holland-Copenhaver (Šidák Step-Down)',
+    desc: 'Šidák-based step-down FWER procedure for independent or positively dependent tests.',
+    vectorSafe: true,
+  },
+  {
+    value: 'rom',
+    shortLabel: 'Rom (Recursive Step-Up)',
+    desc: 'Exact step-up FWER modification of Hochberg (Rom 1990).',
+    vectorSafe: true,
+  },
+  {
+    value: 'li',
+    shortLabel: 'Li (Two-Step Control-vs-All)',
+    desc: 'Two-step rejection rule using the largest p-value as baseline (Li 2008).',
+    vectorSafe: true,
   },
   {
     value: 'fdr_bh',
     shortLabel: 'Benjamini-Hochberg (FDR)',
     desc: 'Controls False Discovery Rate; optimal for large multi-algorithm matrices.',
+    vectorSafe: true,
   },
   {
-    value: 'hochberg',
-    shortLabel: 'Hochberg (Step-Up)',
-    desc: 'Step-up procedure less conservative than Bonferroni under independence.',
+    value: 'fdr_by',
+    shortLabel: 'Benjamini-Yekutieli (Arbitrary Dep. FDR)',
+    desc: 'Controls FDR under arbitrary negative or complex dependence among test statistics.',
+    vectorSafe: true,
+  },
+  {
+    value: 'shaffer',
+    shortLabel: 'Shaffer (Logical All-Pairs FWER)',
+    desc: 'Exploits logical transitivity constraints among pairwise hypotheses (all-pairs matrices).',
+    vectorSafe: false,
+  },
+  {
+    value: 'bergmann_hommel',
+    shortLabel: 'Bergmann-Hommel (Exhaustive All-Pairs)',
+    desc: 'Most powerful FWER procedure for all-pairs benchmark comparisons (García & Herrera 2008).',
+    vectorSafe: false,
   },
   {
     value: 'none',
     shortLabel: 'Unadjusted (Raw p-values)',
     desc: 'Raw unadjusted p-values without multiplicity adjustments.',
+    vectorSafe: true,
   },
 ]
 
@@ -259,7 +383,9 @@ export const StatsTable: React.FC<StatsTableProps> = ({
   rawCsv,
   initialTestType,
   initialTableType,
+  initialViewMode,
   initialMetric,
+  exploration: sharedExploration,
 }) => {
   const availableMetrics = useMemo(
     () => Array.from(new Set(records.map((r) => r.metric))).sort(),
@@ -275,11 +401,23 @@ export const StatsTable: React.FC<StatsTableProps> = ({
   )
 
   const [viewMode, setViewMode] = useState<WorkbenchViewMode>(
-    initialTableType || 'instance_algorithm'
+    initialViewMode || initialTableType || 'instance_algorithm'
   )
   const [activeTableType, setActiveTableType] = useState<TableType>(
     initialTableType || 'instance_algorithm'
   )
+  const [pairedDesign, setPairedDesign] = useState<boolean>(false)
+  const [localExploration, setLocalExploration] = useState<DataExplorationResponse | null>(null)
+  const [rankingBundle, setRankingBundle] = useState<RankingAnalysisResponse | null>(null)
+
+  // Post-Hoc Lab state (Tukey HSD, Games-Howell, Dunnett, Dunn, Conover-Iman)
+  const [posthocMethod, setPosthocMethod] = useState<PostHocMethodId>('auto')
+  const [posthocInstance, setPosthocInstance] = useState<string>('')
+  const [posthocControl, setPosthocControl] = useState<string>('')
+  const [posthocAdjust, setPosthocAdjust] = useState<PostHocCorrectionType>('holm')
+  const [posthocResult, setPosthocResult] = useState<PostHocResult | null>(null)
+  const [isLoadingPosthoc, setIsLoadingPosthoc] = useState<boolean>(false)
+  const [posthocError, setPosthocError] = useState<string | null>(null)
   const [instanceLens, setInstanceLens] = useState<InstanceTableLens>('value_symbol')
   const [pairwiseLens, setPairwiseLens] = useState<PairwiseViewLens>('case_by_case')
   const [focusedInstanceIdx, setFocusedInstanceIdx] = useState<number | null>(null)
@@ -358,7 +496,9 @@ export const StatsTable: React.FC<StatsTableProps> = ({
 
   const handleSelectViewMode = (mode: WorkbenchViewMode) => {
     setViewMode(mode)
-    setActiveTableType(mode)
+    if (mode !== 'posthoc_lab') {
+      setActiveTableType(mode)
+    }
   }
 
   // Interactive Drill-Down Inspector States
@@ -379,10 +519,19 @@ export const StatsTable: React.FC<StatsTableProps> = ({
 
   useEffect(() => {
     if (initialTableType) {
-      setViewMode(initialTableType)
       setActiveTableType(initialTableType)
+      if (!initialViewMode) setViewMode(initialTableType)
     }
-  }, [initialTableType])
+  }, [initialTableType, initialViewMode])
+
+  useEffect(() => {
+    if (initialViewMode) {
+      setViewMode(initialViewMode)
+      if (initialViewMode !== 'posthoc_lab') {
+        setActiveTableType(initialViewMode)
+      }
+    }
+  }, [initialViewMode])
 
   useEffect(() => {
     if (initialMetric && availableMetrics.includes(initialMetric)) {
@@ -396,6 +545,47 @@ export const StatsTable: React.FC<StatsTableProps> = ({
     selectedMetric && availableMetrics.includes(selectedMetric)
       ? selectedMetric
       : availableMetrics[0] || ''
+
+  const activePosthocInstance =
+    posthocInstance && availableInstances.includes(posthocInstance)
+      ? posthocInstance
+      : availableInstances[0] || ''
+
+  const activePosthocControl =
+    posthocControl && availableAlgorithms.includes(posthocControl)
+      ? posthocControl
+      : availableAlgorithms[0] || ''
+
+  // Ensure backend dataset diagnostics are available even when jumping straight to Statistical Workbench
+  useEffect(() => {
+    if (sharedExploration || !apiOnline || (!selectedDatasetFilename && !rawCsv)) return
+    let cancelled = false
+    const loadDiag = async () => {
+      try {
+        const res = selectedDatasetFilename
+          ? await apiClient.exploreDatasetFromPath(selectedDatasetFilename, { alpha })
+          : await apiClient.exploreDatasetFromCsv(rawCsv || '', { alpha })
+        if (!cancelled) setLocalExploration(res)
+      } catch {
+        // Non-blocking diagnostic enrichment
+      }
+    }
+    loadDiag()
+    return () => {
+      cancelled = true
+    }
+  }, [sharedExploration, apiOnline, selectedDatasetFilename, rawCsv, alpha])
+
+  const effectiveExploration = sharedExploration ?? localExploration
+  const contextDiag = effectiveExploration?.context_diagnostics
+
+  const recommendationMap = useMemo(() => {
+    const map: Record<string, { suitability: string; rationale: string }> = {}
+    for (const rec of effectiveExploration?.recommendations || []) {
+      map[rec.test_id] = { suitability: rec.suitability, rationale: rec.rationale }
+    }
+    return map
+  }, [effectiveExploration])
 
   const buildQueryParams = useCallback((): StatisticalTableQueryParams => {
     return {
@@ -411,6 +601,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
       precision: 4,
       latex_document_mode: latexDocumentMode,
       latex_notation: latexNotation,
+      paired: pairedDesign,
     }
   }, [
     activeMetric,
@@ -424,6 +615,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
     alpha,
     latexDocumentMode,
     latexNotation,
+    pairedDesign,
   ])
 
   const fetchTable = useCallback(async () => {
@@ -448,6 +640,141 @@ export const StatsTable: React.FC<StatsTableProps> = ({
   useEffect(() => {
     fetchTable()
   }, [fetchTable])
+
+  // Fetch extended blocked-omnibus ranking bundle (Friedman Aligned, Quade, RM-ANOVA GG, Plackett-Luce)
+  useEffect(() => {
+    if (
+      viewMode !== 'omnibus_posthoc' ||
+      !apiOnline ||
+      !activeMetric ||
+      (!selectedDatasetFilename && !rawCsv)
+    ) {
+      return
+    }
+    let cancelled = false
+    const loadRankingBundle = async () => {
+      try {
+        const res = selectedDatasetFilename
+          ? await apiClient.getRankingFromPath(
+              selectedDatasetFilename,
+              activeMetric,
+              alpha,
+              availableInstances.length > 1 ? 'all-instances' : 'single-instance',
+              availableInstances[0]
+            )
+          : await apiClient.getRankingFromCsv(
+              rawCsv || '',
+              activeMetric,
+              alpha,
+              availableInstances.length > 1 ? 'all-instances' : 'single-instance',
+              availableInstances[0]
+            )
+        if (!cancelled) setRankingBundle(res)
+      } catch {
+        if (!cancelled) setRankingBundle(null)
+      }
+    }
+    loadRankingBundle()
+    return () => {
+      cancelled = true
+    }
+  }, [
+    viewMode,
+    apiOnline,
+    activeMetric,
+    alpha,
+    selectedDatasetFilename,
+    rawCsv,
+    availableInstances,
+  ])
+
+  // Fetch cell-level Post-Hoc Lab results (Tukey HSD, Games-Howell, Dunnett, Dunn, Conover-Iman)
+  const fetchPosthoc = useCallback(async () => {
+    if (
+      viewMode !== 'posthoc_lab' ||
+      !apiOnline ||
+      !activeMetric ||
+      (!selectedDatasetFilename && !rawCsv)
+    ) {
+      return
+    }
+    if (contextDiag?.can_run_cell_tests === false) {
+      setPosthocResult(null)
+      setPosthocError(null)
+      return
+    }
+    setIsLoadingPosthoc(true)
+    setPosthocError(null)
+    try {
+      const safeAdjust =
+        posthocAdjust === 'shaffer' || posthocAdjust === 'bergmann_hommel'
+          ? 'holm'
+          : posthocAdjust
+      const params = {
+        metric: activeMetric,
+        instance: activePosthocInstance || undefined,
+        method: posthocMethod,
+        control: posthocMethod === 'dunnett' ? activePosthocControl || undefined : undefined,
+        p_adjust: safeAdjust,
+        alpha,
+      }
+      const res = selectedDatasetFilename
+        ? await apiClient.getPostHocFromPath(selectedDatasetFilename, params)
+        : await apiClient.getPostHocFromCsv(rawCsv || '', params)
+      setPosthocResult(res)
+    } catch (err: unknown) {
+      const detail =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        (err instanceof Error ? err.message : 'Failed to compute post-hoc comparisons.')
+      setPosthocError(detail)
+      setPosthocResult(null)
+    } finally {
+      setIsLoadingPosthoc(false)
+    }
+  }, [
+    viewMode,
+    apiOnline,
+    activeMetric,
+    activePosthocInstance,
+    activePosthocControl,
+    posthocMethod,
+    posthocAdjust,
+    alpha,
+    selectedDatasetFilename,
+    rawCsv,
+    contextDiag?.can_run_cell_tests,
+  ])
+
+  useEffect(() => {
+    fetchPosthoc()
+  }, [fetchPosthoc])
+
+  const handleExportPosthocCsv = () => {
+    if (!posthocResult) return
+    const headers = [
+      'Group 1',
+      'Group 2',
+      'Mean Diff',
+      'CI Lower',
+      'CI Upper',
+      'Statistic',
+      'Raw p-value',
+      `Adjusted p (${posthocResult.p_adjust})`,
+      'Significant',
+    ]
+    const rows = posthocResult.comparisons.map((c) => [
+      c.group_1,
+      c.group_2,
+      c.mean_diff !== null && c.mean_diff !== undefined ? c.mean_diff.toFixed(6) : '',
+      c.ci_lower !== null && c.ci_lower !== undefined ? c.ci_lower.toFixed(6) : '',
+      c.ci_upper !== null && c.ci_upper !== undefined ? c.ci_upper.toFixed(6) : '',
+      c.statistic.toFixed(4),
+      c.p_value.toExponential(4),
+      c.p_adjusted.toExponential(4),
+      c.is_significant ? 'Yes' : 'No',
+    ])
+    exportToCsv(`saes_posthoc_${activeMetric}_${posthocMethod}`, headers, rows)
+  }
 
   const handleExport = async (format: TableExportFormat) => {
     if (!apiOnline || (!selectedDatasetFilename && !rawCsv)) return
@@ -673,7 +1000,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
             <button
               type="button"
               onClick={() => handleSelectViewMode('omnibus_posthoc')}
-              title="Friedman & ANOVA multi-group omnibus tests, average ranks, and critical differences"
+              title="Friedman, Aligned-Ranks, Quade, RM-ANOVA (GG) blocked omnibus tests & average ranks"
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 viewMode === 'omnibus_posthoc'
                   ? 'bg-primary text-primary-foreground shadow-xs'
@@ -682,6 +1009,20 @@ export const StatsTable: React.FC<StatsTableProps> = ({
             >
               <Trophy className="w-3.5 h-3.5" />
               <span>Global Rankings</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSelectViewMode('posthoc_lab')}
+              title="Dedicated Post-Hoc Multiple Comparisons Lab: Tukey HSD, Games-Howell, Dunnett, Dunn, Conover-Iman"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                viewMode === 'posthoc_lab'
+                  ? 'bg-primary text-primary-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+              }`}
+            >
+              <FlaskConical className="w-3.5 h-3.5" />
+              <span>Post-Hoc Lab</span>
             </button>
           </div>
 
@@ -715,22 +1056,6 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                 </span>
               )}
             </Button>
-
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              disabled={isExporting !== null || !tableData}
-              onClick={() => setIsExportDialogOpen(true)}
-              className="h-9 px-4 text-xs gap-1.5 font-semibold shadow-xs cursor-pointer"
-            >
-              {isExporting !== null ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Download className="w-3.5 h-3.5" />
-              )}
-              Export Table
-            </Button>
           </div>
         </div>
 
@@ -756,19 +1081,45 @@ export const StatsTable: React.FC<StatsTableProps> = ({
             </label>
             <SelectDropdown
               value={testType}
-              options={TEST_OPTIONS.map((opt) => ({
-                value: opt.value,
-                label: opt.shortLabel,
-                group: opt.group,
-                desc: opt.desc,
-              }))}
+              options={TEST_OPTIONS.map((opt) => {
+                const rec = recommendationMap[opt.value]
+                const tag =
+                  rec?.suitability === 'recommended'
+                    ? ' ★ Recommended'
+                    : rec?.suitability === 'suitable'
+                      ? ' ✓ Suitable'
+                      : rec?.suitability === 'caution'
+                        ? ' ⚠ Caution'
+                        : ''
+                return {
+                  value: opt.value,
+                  label: `${opt.shortLabel}${tag}`,
+                  group: opt.group,
+                  desc: opt.desc,
+                }
+              })}
               onChange={(val) => setTestType(val as StatisticalTestType)}
               fullWidth
               triggerClassName="h-9 font-medium"
             />
-            <p className="text-[11px] text-muted-foreground truncate">
-              {TEST_OPTIONS.find((o) => o.value === testType)?.desc}
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+              <p className="truncate">
+                {TEST_OPTIONS.find((o) => o.value === testType)?.desc}
+              </p>
+              <button
+                type="button"
+                onClick={() => setPairedDesign((prev) => !prev)}
+                title="Default is Independent Runs (Stochastic Seeds). Enable Paired only when run_id indices share matched CV folds or Common Random Numbers (CRN)."
+                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md border text-[11px] font-medium transition-colors cursor-pointer shrink-0 ${
+                  pairedDesign
+                    ? 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/40'
+                    : 'bg-muted/60 text-muted-foreground border-border/70 hover:text-foreground'
+                }`}
+              >
+                <Link2 className="w-3 h-3" />
+                {pairedDesign ? 'Design: Paired (CRN / Matched Folds)' : 'Design: Independent Runs'}
+              </button>
+            </div>
           </div>
 
           <div className="space-y-1.5 sm:col-span-2 lg:col-span-4 xl:col-span-3">
@@ -990,6 +1341,27 @@ export const StatsTable: React.FC<StatsTableProps> = ({
         )}
       </div>
 
+      {/* Backend Dataset-Aware Suitability Guard Banner */}
+      {contextDiag?.can_run_cell_tests === false && viewMode !== 'omnibus_posthoc' && (
+        <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs flex items-start gap-2.5">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div>
+            <strong>Single-Run Design Detected (n = 1 observation per cell):</strong> Within-cell
+            tests (Mann-Whitney, Brunner-Munzel, Welch/Student t-test, Tukey/Dunn post-hoc) require
+            at least 2 runs per algorithm–instance cell. Switch to{' '}
+            <button
+              type="button"
+              onClick={() => handleSelectViewMode('omnibus_posthoc')}
+              className="underline font-bold cursor-pointer"
+            >
+              Global Rankings
+            </button>{' '}
+            for valid multi-instance blocked tests (Friedman, Aligned-Ranks, Quade, RM-ANOVA,
+            Bayesian Plackett-Luce).
+          </div>
+        </div>
+      )}
+
       {/* Error Banner */}
       {errorMsg && (
         <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs flex items-center gap-2">
@@ -1014,7 +1386,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
       {tableData && viewMode === 'instance_algorithm' && (
         <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
           <div className="px-5 py-4 border-b border-border/60 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
+            <div className="flex-1 min-w-0">
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <span>Instance × Algorithm Benchmark Table</span>
                 <Badge variant="outline" className="font-mono text-xs">
@@ -1030,41 +1402,60 @@ export const StatsTable: React.FC<StatsTableProps> = ({
               </p>
             </div>
 
-            {/* Smart Visual Lens Switcher for Instance × Algorithm Table */}
-            <div className="flex items-center gap-1 rounded-xl border border-border bg-muted/50 p-1 self-start sm:self-auto">
-              <button
+            {/* Controls: Lens Switcher & Table Export */}
+            <div className="flex flex-wrap items-center gap-2.5 sm:ml-auto shrink-0 justify-end">
+              <div className="flex items-center gap-1 rounded-xl border border-border bg-muted/50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setInstanceLens('value_symbol')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                    instanceLens === 'value_symbol'
+                      ? 'bg-card text-foreground font-semibold shadow-2xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Value + Symbol
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInstanceLens('symbol_only')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                    instanceLens === 'symbol_only'
+                      ? 'bg-card text-foreground font-semibold shadow-2xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Symbols Only (+/≈/−)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInstanceLens('rank_only')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                    instanceLens === 'rank_only'
+                      ? 'bg-card text-foreground font-semibold shadow-2xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  Ranks (#Rank)
+                </button>
+              </div>
+
+              <Button
                 type="button"
-                onClick={() => setInstanceLens('value_symbol')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                  instanceLens === 'value_symbol'
-                    ? 'bg-card text-foreground font-semibold shadow-2xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                variant="outline"
+                size="sm"
+                disabled={isExporting !== null || !tableData}
+                onClick={() => setIsExportDialogOpen(true)}
+                className="h-8 px-3 text-xs gap-1.5 font-medium rounded-lg cursor-pointer ml-auto shrink-0"
+                title="Export Instance × Algorithm Benchmark Table (PDF, LaTeX, CSV, Word, Markdown)"
               >
-                Value + Symbol
-              </button>
-              <button
-                type="button"
-                onClick={() => setInstanceLens('symbol_only')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                  instanceLens === 'symbol_only'
-                    ? 'bg-card text-foreground font-semibold shadow-2xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Symbols Only (+/≈/−)
-              </button>
-              <button
-                type="button"
-                onClick={() => setInstanceLens('rank_only')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                  instanceLens === 'rank_only'
-                    ? 'bg-card text-foreground font-semibold shadow-2xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                Ranks (#Rank)
-              </button>
+                {isExporting !== null ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-primary" />
+                )}
+                Export Table
+              </Button>
             </div>
           </div>
 
@@ -1277,7 +1668,7 @@ export const StatsTable: React.FC<StatsTableProps> = ({
         <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs space-y-0">
           {/* Header with Switcher between Case-by-Case (+/=/- per instance) and General Summary */}
           <div className="px-5 py-4 border-b border-border/60 bg-muted/20 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="space-y-1">
+            <div className="space-y-1 flex-1 min-w-0">
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <span>
                   {tableData.metric} — {tableData.resolved_pairwise_test} 1vs1 Table
@@ -1307,32 +1698,51 @@ export const StatsTable: React.FC<StatsTableProps> = ({
               </p>
             </div>
 
-            {/* Mode Switcher: Case-by-Case vs General Level */}
-            <div className="flex items-center gap-1 rounded-xl border border-border bg-muted/50 p-1 self-start lg:self-auto shrink-0">
-              <button
+            {/* Controls: Mode Switcher & Table Export */}
+            <div className="flex flex-wrap items-center gap-2.5 lg:ml-auto shrink-0 justify-end">
+              <div className="flex items-center gap-1 rounded-xl border border-border bg-muted/50 p-1">
+                <button
+                  type="button"
+                  onClick={() => setPairwiseLens('case_by_case')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                    pairwiseLens === 'case_by_case'
+                      ? 'bg-card text-foreground font-semibold shadow-2xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Eye className="w-3.5 h-3.5 text-primary" />
+                  Case by Case (+ / = / - Sequence)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPairwiseLens('general_summary')}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                    pairwiseLens === 'general_summary'
+                      ? 'bg-card text-foreground font-semibold shadow-2xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Grid className="w-3.5 h-3.5 text-sky-500" />
+                  General Level (Global Summary)
+                </button>
+              </div>
+
+              <Button
                 type="button"
-                onClick={() => setPairwiseLens('case_by_case')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                  pairwiseLens === 'case_by_case'
-                    ? 'bg-card text-foreground font-semibold shadow-2xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
+                variant="outline"
+                size="sm"
+                disabled={isExporting !== null || !tableData}
+                onClick={() => setIsExportDialogOpen(true)}
+                className="h-8 px-3 text-xs gap-1.5 font-medium rounded-lg cursor-pointer ml-auto shrink-0"
+                title="Export Pairwise 1vs1 Table (PDF, LaTeX, CSV, Word, Markdown)"
               >
-                <Eye className="w-3.5 h-3.5 text-primary" />
-                Case by Case (+ / = / - Sequence)
-              </button>
-              <button
-                type="button"
-                onClick={() => setPairwiseLens('general_summary')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                  pairwiseLens === 'general_summary'
-                    ? 'bg-card text-foreground font-semibold shadow-2xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Grid className="w-3.5 h-3.5 text-sky-500" />
-                General Level (Global Summary)
-              </button>
+                {isExporting !== null ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-primary" />
+                )}
+                Export Table
+              </Button>
             </div>
           </div>
 
@@ -1615,16 +2025,131 @@ export const StatsTable: React.FC<StatsTableProps> = ({
          ===================================================================== */}
       {tableData && viewMode === 'omnibus_posthoc' && (
         <div className="space-y-6">
+          {/* Blocked Multi-Instance Omnibus Suite Comparison Panel */}
+          <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-foreground">
+                  Blocked Multi-Instance Omnibus Test Suite (k = {tableData.algorithms.length}{' '}
+                  Algorithms, N = {tableData.instances.length} Blocks)
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  All blocked omnibus procedures computed by SAES backend across matched problem
+                  instances.
+                </p>
+              </div>
+              {tableData.global_anova_f === null && tableData.instances.length > 1 && (
+                <span className="px-2.5 py-1 rounded-lg bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 text-[11px] font-medium">
+                  Unblocked pooled ANOVA/Kruskal omitted to prevent pseudoreplication
+                </span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 text-xs font-mono">
+              <div className="p-3 rounded-xl border border-border/70 bg-muted/25 space-y-1">
+                <span className="text-[10px] uppercase text-muted-foreground block font-sans font-semibold">
+                  Friedman χ² (Tie-Corr.)
+                </span>
+                <div className="text-sm font-bold text-foreground">
+                  {formatNum(tableData.friedman_stat, 3)}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  p = {formatP(tableData.friedman_p_value)} • W ={' '}
+                  {formatNum(tableData.kendalls_w, 3)}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border border-border/70 bg-muted/25 space-y-1">
+                <span className="text-[10px] uppercase text-muted-foreground block font-sans font-semibold">
+                  Iman-Davenport F
+                </span>
+                <div className="text-sm font-bold text-foreground">
+                  {formatNum(tableData.iman_davenport_f, 3)}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  p = {formatP(tableData.iman_davenport_p_value)}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border border-border/70 bg-muted/25 space-y-1">
+                <span className="text-[10px] uppercase text-muted-foreground block font-sans font-semibold">
+                  Friedman Aligned-Ranks
+                </span>
+                <div className="text-sm font-bold text-foreground">
+                  {formatNum(
+                    rankingBundle?.friedman_aligned?.statistic ?? tableData.friedman_aligned_stat,
+                    3
+                  )}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  p ={' '}
+                  {formatP(
+                    rankingBundle?.friedman_aligned?.p_value ?? tableData.friedman_aligned_p_value
+                  )}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border border-border/70 bg-muted/25 space-y-1">
+                <span className="text-[10px] uppercase text-muted-foreground block font-sans font-semibold">
+                  Quade Weighted-Block F
+                </span>
+                <div className="text-sm font-bold text-foreground">
+                  {formatNum(rankingBundle?.quade?.statistic ?? tableData.quade_stat, 3)}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  p = {formatP(rankingBundle?.quade?.p_value ?? tableData.quade_p_value)}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl border border-border/70 bg-muted/25 space-y-1">
+                <span className="text-[10px] uppercase text-muted-foreground block font-sans font-semibold">
+                  RM-ANOVA (GG ε)
+                </span>
+                <div className="text-sm font-bold text-foreground">
+                  {rankingBundle?.rm_anova ? formatNum(rankingBundle.rm_anova.statistic, 3) : '—'}
+                </div>
+                <div className="text-[11px] text-muted-foreground">
+                  {rankingBundle?.rm_anova
+                    ? `p = ${formatP(rankingBundle.rm_anova.p_value)}${
+                        rankingBundle.rm_anova.sphericity_epsilon
+                          ? ` • ε=${rankingBundle.rm_anova.sphericity_epsilon.toFixed(2)}`
+                          : ''
+                      }`
+                    : 'Requires N ≥ 2 blocks'}
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
-            <div className="px-5 py-4 border-b border-border/60 bg-muted/20">
-              <h3 className="text-sm font-bold text-foreground">
-                Multi-Problem Friedman Ranking &amp; Post-Hoc Control Table (Reference:{' '}
-                <span className="text-primary font-mono">{tableData.reference_algorithm}</span>)
-              </h3>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Average Friedman ranks, z-statistics, adjusted p-values (Holm / Bonferroni), global
-                Wilcoxon Signed-Rank p-values, and Bayesian P(Best).
-              </p>
+            <div className="px-5 py-4 border-b border-border/60 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-foreground">
+                  Multi-Problem Friedman Ranking &amp; Post-Hoc Control Table (Reference:{' '}
+                  <span className="text-primary font-mono">{tableData.reference_algorithm}</span>)
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Average Friedman ranks, z-statistics, adjusted p-values (Holm / Bonferroni), global
+                  Wilcoxon Signed-Rank p-values, and Bayesian P(Best).
+                </p>
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isExporting !== null || !tableData}
+                onClick={() => setIsExportDialogOpen(true)}
+                className="h-8 px-3 text-xs gap-1.5 font-medium rounded-lg cursor-pointer ml-auto shrink-0"
+                title="Export Friedman & Post-Hoc Table (PDF, LaTeX, CSV, Word, Markdown)"
+              >
+                {isExporting !== null ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-primary" />
+                )}
+                Export Table
+              </Button>
             </div>
 
             <div className="overflow-x-auto">
@@ -1820,6 +2345,267 @@ export const StatsTable: React.FC<StatsTableProps> = ({
                 </TableBody>
               </Table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          VIEW MODE 4: POST-HOC MULTIPLE COMPARISONS LAB
+          (Tukey HSD, Games-Howell, Dunnett, Dunn, Conover-Iman)
+         ===================================================================== */}
+      {viewMode === 'posthoc_lab' && (
+        <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
+          <div className="px-5 py-4 border-b border-border/60 bg-muted/20 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <FlaskConical className="w-4 h-4 text-primary" />
+                <span>Post-Hoc Multiple Comparisons Lab</span>
+                <Badge variant="outline" className="font-mono text-xs">
+                  {activeMetric} • {activePosthocInstance}
+                </Badge>
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Dedicated parametric (Tukey HSD, Games-Howell, Dunnett) and non-parametric (Dunn,
+                Conover-Iman) post-hoc procedures with exact confidence intervals and FWER/FDR
+                p-value adjustments.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 ml-auto shrink-0 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleExportPosthocCsv}
+                disabled={!posthocResult}
+                className="h-8 gap-1.5 text-xs rounded-lg shrink-0"
+                title="Export Post-Hoc Pairwise Comparisons as CSV"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                Export CSV
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isExporting !== null || !tableData}
+                onClick={() => setIsExportDialogOpen(true)}
+                className="h-8 px-3 text-xs gap-1.5 font-medium rounded-lg cursor-pointer shrink-0"
+                title="Export Statistical Table (PDF, LaTeX, CSV, Word, Markdown)"
+              >
+                {isExporting !== null ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-primary" />
+                )}
+                Export Table
+              </Button>
+            </div>
+          </div>
+
+          <div className="p-5 space-y-4">
+            {/* Post-Hoc Controls Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold uppercase text-muted-foreground block">
+                  Post-Hoc Procedure
+                </label>
+                <SelectDropdown
+                  value={posthocMethod}
+                  options={POSTHOC_METHOD_OPTIONS.map((m) => ({
+                    value: m.value,
+                    label: m.label,
+                    desc: m.desc,
+                  }))}
+                  onChange={(v) => setPosthocMethod(v as PostHocMethodId)}
+                  fullWidth
+                  triggerClassName="h-9 font-medium"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold uppercase text-muted-foreground block">
+                  Benchmark Instance
+                </label>
+                <SelectDropdown
+                  value={activePosthocInstance}
+                  options={availableInstances.map((inst) => ({ value: inst, label: inst }))}
+                  onChange={setPosthocInstance}
+                  fullWidth
+                  triggerClassName="h-9 font-mono"
+                />
+              </div>
+
+              {posthocMethod === 'dunnett' ? (
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold uppercase text-muted-foreground block">
+                    Control Algorithm (vs All)
+                  </label>
+                  <SelectDropdown
+                    value={activePosthocControl}
+                    options={availableAlgorithms.map((a) => ({ value: a, label: a }))}
+                    onChange={setPosthocControl}
+                    fullWidth
+                    triggerClassName="h-9 font-mono"
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <label className="text-[11px] font-semibold uppercase text-muted-foreground block">
+                    Multiplicity Adjustment
+                  </label>
+                  <SelectDropdown
+                    value={
+                      posthocAdjust === 'shaffer' || posthocAdjust === 'bergmann_hommel'
+                        ? 'holm'
+                        : posthocAdjust
+                    }
+                    options={CORRECTION_OPTIONS.filter((c) => c.vectorSafe).map((c) => ({
+                      value: c.value,
+                      label: c.shortLabel,
+                      desc: c.desc,
+                    }))}
+                    onChange={(v) => setPosthocAdjust(v as PostHocCorrectionType)}
+                    disabled={posthocMethod === 'tukey_hsd' || posthocMethod === 'games_howell'}
+                    fullWidth
+                    triggerClassName="h-9"
+                  />
+                </div>
+              )}
+
+              <div className="flex items-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchPosthoc}
+                  disabled={isLoadingPosthoc || contextDiag?.can_run_cell_tests === false}
+                  className="h-9 w-full gap-1.5 text-xs"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingPosthoc ? 'animate-spin' : ''}`} />
+                  Run Post-Hoc Test
+                </Button>
+              </div>
+            </div>
+
+            {isLoadingPosthoc && (
+              <div className="py-10 text-center space-y-2">
+                <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto" />
+                <p className="text-xs text-muted-foreground">
+                  Computing pairwise post-hoc statistics and adjusted p-values...
+                </p>
+              </div>
+            )}
+
+            {posthocError && (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{posthocError}</span>
+              </div>
+            )}
+
+            {!isLoadingPosthoc && posthocResult && (
+              <div className="space-y-4">
+                {/* Summary strip */}
+                <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+                  <span className="px-2.5 py-1 rounded-lg bg-primary/10 text-primary font-semibold">
+                    Resolved: {posthocResult.method}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-muted/70 text-foreground">
+                    Adjustment: {posthocResult.p_adjust}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                    Significant Pairs:{' '}
+                    {posthocResult.comparisons.filter((c) => c.is_significant).length} /{' '}
+                    {posthocResult.comparisons.length} (α = {posthocResult.alpha})
+                  </span>
+                </div>
+
+                {posthocResult.warnings && posthocResult.warnings.length > 0 && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs space-y-1">
+                    {posthocResult.warnings.map((w, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{w}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="rounded-xl border border-border overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-muted/40">
+                      <TableRow>
+                        <TableHead className="text-xs font-bold">Group 1</TableHead>
+                        <TableHead className="text-xs font-bold">Group 2</TableHead>
+                        <TableHead className="text-center text-xs font-bold">Mean Diff</TableHead>
+                        <TableHead className="text-center text-xs font-bold">95% CI</TableHead>
+                        <TableHead className="text-center text-xs font-bold">Statistic</TableHead>
+                        <TableHead className="text-center text-xs font-bold">Raw p</TableHead>
+                        <TableHead className="text-center text-xs font-bold">
+                          Adjusted p ({posthocResult.p_adjust})
+                        </TableHead>
+                        <TableHead className="text-center text-xs font-bold">Decision</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {posthocResult.comparisons.map((c, idx) => (
+                        <TableRow
+                          key={`${c.group_1}-${c.group_2}-${idx}`}
+                          className="hover:bg-muted/25"
+                        >
+                          <TableCell className="font-mono font-bold text-xs text-primary">
+                            {c.group_1}
+                          </TableCell>
+                          <TableCell className="font-mono font-bold text-xs">{c.group_2}</TableCell>
+                          <TableCell className="text-center font-mono text-xs">
+                            {c.mean_diff !== null && c.mean_diff !== undefined
+                              ? formatNum(c.mean_diff)
+                              : '—'}
+                          </TableCell>
+                          <TableCell className="text-center font-mono text-xs text-muted-foreground">
+                            {c.ci_lower !== null &&
+                            c.ci_lower !== undefined &&
+                            c.ci_upper !== null &&
+                            c.ci_upper !== undefined
+                              ? `[${formatNum(c.ci_lower)}, ${formatNum(c.ci_upper)}]`
+                              : '—'}
+                          </TableCell>
+                          <TableCell className="text-center font-mono text-xs">
+                            {formatNum(c.statistic, 3)}
+                          </TableCell>
+                          <TableCell className="text-center font-mono text-xs">
+                            {formatP(c.p_value)}
+                          </TableCell>
+                          <TableCell className="text-center font-mono text-xs font-bold">
+                            <span
+                              className={`px-2 py-0.5 rounded-md border ${
+                                c.is_significant
+                                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                                  : 'bg-muted text-muted-foreground border-border'
+                              }`}
+                            >
+                              {formatP(c.p_adjusted)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center text-xs">
+                            {c.is_significant ? (
+                              <Badge className="bg-emerald-600 text-white text-[10px]">
+                                Significant
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px]">
+                                Equivalent / NS
+                              </Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

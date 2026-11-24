@@ -57,8 +57,11 @@ interface DataTableProps {
   onSelectRecommendedTest?: (
     testId: StatisticalTestType,
     tableType: TableType,
-    metric?: string
+    metric?: string,
+    targetTab?: string,
+    targetMode?: string
   ) => void
+  onExplorationLoaded?: (exploration: DataExplorationResponse) => void
 }
 
 type ExplorerSubTab = 'reveal_metrics' | 'normality' | 'recommendations' | 'raw_rows'
@@ -85,6 +88,7 @@ export const DataTable: React.FC<DataTableProps> = ({
   selectedDatasetFilename,
   rawCsv,
   onSelectRecommendedTest,
+  onExplorationLoaded,
 }) => {
   const [subTab, setSubTab] = useState<ExplorerSubTab>('reveal_metrics')
   const [pivotGranularity, setPivotGranularity] = useState<PivotGranularity>('aggregated')
@@ -130,6 +134,7 @@ export const DataTable: React.FC<DataTableProps> = ({
         ? await apiClient.exploreDatasetFromPath(selectedDatasetFilename, params)
         : await apiClient.exploreDatasetFromCsv(rawCsv || '', params)
       setExploration(res)
+      onExplorationLoaded?.(res)
     } catch {
       // Keep local fallback table functional even if exploration call fails
     } finally {
@@ -144,6 +149,7 @@ export const DataTable: React.FC<DataTableProps> = ({
     selectedAlgorithms,
     selectedInstances,
     alpha,
+    onExplorationLoaded,
   ])
 
   useEffect(() => {
@@ -405,15 +411,15 @@ export const DataTable: React.FC<DataTableProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* 1. CLEAN UNIFIED HEADER BAR: SUB-TABS, SEARCH, COLLAPSIBLE FILTERS & EXPORT */}
+      {/* 1. CLEAN UNIFIED HEADER BAR: SUB-TABS, SEARCH & COLLAPSIBLE FILTERS */}
       <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-xs space-y-4">
-        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           {/* Sub-Tab Selector */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
             <button
               type="button"
               onClick={() => setSubTab('reveal_metrics')}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 subTab === 'reveal_metrics'
                   ? 'bg-primary text-primary-foreground shadow-xs'
                   : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -426,54 +432,54 @@ export const DataTable: React.FC<DataTableProps> = ({
             <button
               type="button"
               onClick={() => setSubTab('normality')}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 subTab === 'normality'
                   ? 'bg-primary text-primary-foreground shadow-xs'
                   : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
               <Activity className="w-3.5 h-3.5" />
-              Normality &amp; Distributions ({exploration?.distribution_profiles.length || 0})
+              Normality ({exploration?.distribution_profiles.length || 0})
             </button>
 
             <button
               type="button"
               onClick={() => setSubTab('recommendations')}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 subTab === 'recommendations'
                   ? 'bg-primary text-primary-foreground shadow-xs'
                   : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
-              Test Suggestions ({exploration?.recommendations.length || 0})
+              Suggestions ({exploration?.recommendations.length || 0})
             </button>
 
             <button
               type="button"
               onClick={() => setSubTab('raw_rows')}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 subTab === 'raw_rows'
                   ? 'bg-primary text-primary-foreground shadow-xs'
                   : 'bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted'
               }`}
             >
               <Database className="w-3.5 h-3.5" />
-              Raw Observations ({filteredRawRecords.length.toLocaleString()})
+              Raw Data ({filteredRawRecords.length.toLocaleString()})
             </button>
             {isLoadingExplore && <Loader2 className="w-4 h-4 animate-spin text-primary ml-1" />}
           </div>
 
-          {/* Search, Filter Toggle & Export Button */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 sm:w-56">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+          {/* Search & Filter Toggle (same row, flush right) */}
+          <div className="flex items-center gap-2 lg:ml-auto shrink-0">
+            <div className="relative flex-1 sm:flex-none sm:w-44 xl:w-52">
+              <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Quick search algorithm or instance..."
+                placeholder="Quick search..."
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
-                className="h-9 w-full rounded-xl border border-input bg-background pl-8 pr-3 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                className="h-8 w-full rounded-lg border border-input bg-background pl-8 pr-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
 
@@ -482,10 +488,10 @@ export const DataTable: React.FC<DataTableProps> = ({
               variant="outline"
               size="sm"
               onClick={() => setShowDimensionFilters(!showDimensionFilters)}
-              className="h-9 px-3 text-xs gap-1.5"
+              className="h-8 px-2.5 text-xs gap-1.5 whitespace-nowrap shrink-0"
             >
               <Filter className="w-3.5 h-3.5" />
-              {showDimensionFilters ? 'Hide Filters' : 'Filter Dimensions'}
+              {showDimensionFilters ? 'Hide Filters' : 'Filters'}
               {activeFilterGroups > 0 && (
                 <span className="px-1.5 py-0.2 rounded-full bg-primary text-primary-foreground text-[10px]">
                   {activeFilterGroups}
@@ -499,28 +505,12 @@ export const DataTable: React.FC<DataTableProps> = ({
                 variant="ghost"
                 size="sm"
                 onClick={resetAllFilters}
-                className="h-9 px-2.5 text-xs gap-1 text-muted-foreground hover:text-foreground"
+                className="h-8 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground shrink-0"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 Reset
               </Button>
             )}
-
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              disabled={isExporting !== null || !exploration}
-              onClick={() => setIsExportDialogOpen(true)}
-              className="h-9 px-4 text-xs gap-1.5 font-semibold shadow-xs"
-            >
-              {isExporting !== null ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Download className="w-3.5 h-3.5" />
-              )}
-              Export Table
-            </Button>
           </div>
         </div>
 
@@ -673,6 +663,29 @@ export const DataTable: React.FC<DataTableProps> = ({
                 Levene min p = {fmtP(diag.homoscedasticity_levene_p)} (
                 {diag.homoscedasticity_passed ? 'Homoscedastic' : 'Heteroscedastic'})
               </span>
+
+              {diag.can_run_cell_tests === false ? (
+                <span
+                  title="Each (algorithm, instance) cell has only 1 observation. Use blocked multi-instance tests (Friedman, Quade, Plackett-Luce) instead of within-cell tests."
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 font-medium text-xs"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  Single-Run Cells (n=1): Blocked Omnibus Mode
+                </span>
+              ) : diag.can_run_blocked_omnibus === false ? (
+                <span
+                  title="Single benchmark instance detected. Within-cell tests, Post-Hoc Lab, Effect-Size Forest, and TOST are available."
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 font-medium text-xs"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Single-Instance Mode (N=1): Cell &amp; Post-Hoc Tests
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-medium text-xs">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Full Suite Ready (Cell + Blocked + Bayesian)
+                </span>
+              )}
             </div>
 
             {exploration?.recommendations[0] && (
@@ -691,8 +704,8 @@ export const DataTable: React.FC<DataTableProps> = ({
          ===================================================================== */}
       {subTab === 'reveal_metrics' && (
         <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
-          <div className="px-5 py-4 border-b border-border/60 bg-muted/20 flex flex-wrap items-center justify-between gap-3">
-            <div>
+          <div className="px-5 py-4 border-b border-border/60 bg-muted/20 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
               <h4 className="text-sm font-bold text-foreground">
                 Side-by-Side Multi-Metric Reveal Matrix
               </h4>
@@ -702,7 +715,7 @@ export const DataTable: React.FC<DataTableProps> = ({
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2 text-xs md:ml-auto shrink-0 justify-end">
               <div className="flex items-center rounded-xl border border-border bg-muted/50 p-1">
                 <button
                   type="button"
@@ -754,6 +767,23 @@ export const DataTable: React.FC<DataTableProps> = ({
                   </button>
                 </div>
               )}
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isExporting !== null || !exploration}
+                onClick={() => setIsExportDialogOpen(true)}
+                className="h-8 px-3 text-xs gap-1.5 font-medium rounded-lg cursor-pointer"
+                title="Export Reveal Table (PDF, LaTeX, CSV, Word, Markdown, HTML)"
+              >
+                {isExporting !== null ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-primary" />
+                )}
+                Export Table
+              </Button>
             </div>
           </div>
 
@@ -900,11 +930,11 @@ export const DataTable: React.FC<DataTableProps> = ({
          ===================================================================== */}
       {subTab === 'normality' && (
         <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
-          <div className="px-5 py-4 border-b border-border/60 bg-muted/20 flex flex-wrap items-center justify-between gap-3">
-            <div>
+          <div className="px-5 py-4 border-b border-border/60 bg-muted/20 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
               <h4 className="text-sm font-bold text-foreground">
-                Group-by-Group Normality (Shapiro-Wilk, D&apos;Agostino K², KS) &amp; Distribution
-                Diagnostics
+                Group-by-Group Normality (Shapiro-Wilk, Lilliefors KS, Anderson-Darling) &amp;
+                Distribution Diagnostics
               </h4>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Click any row to inspect its empirical distribution histogram, quantiles, and
@@ -912,27 +942,46 @@ export const DataTable: React.FC<DataTableProps> = ({
               </p>
             </div>
 
-            <div className="flex items-center gap-1 rounded-xl border border-border bg-muted/50 p-1 text-xs">
-              {(
-                [
-                  { id: 'all', label: 'All Groups' },
-                  { id: 'normal', label: 'Normal Only' },
-                  { id: 'non_normal', label: 'Non-Normal (Violated)' },
-                ] as { id: NormalityFilter; label: string }[]
-              ).map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => setNormalityFilter(f.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer ${
-                    normalityFilter === f.id
-                      ? 'bg-card text-foreground font-semibold shadow-2xs'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-2 md:ml-auto shrink-0 justify-end">
+              <div className="flex items-center gap-1 rounded-xl border border-border bg-muted/50 p-1 text-xs">
+                {(
+                  [
+                    { id: 'all', label: 'All Groups' },
+                    { id: 'normal', label: 'Normal Only' },
+                    { id: 'non_normal', label: 'Non-Normal (Violated)' },
+                  ] as { id: NormalityFilter; label: string }[]
+                ).map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setNormalityFilter(f.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer ${
+                      normalityFilter === f.id
+                        ? 'bg-card text-foreground font-semibold shadow-2xs'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isExporting !== null || !exploration}
+                onClick={() => setIsExportDialogOpen(true)}
+                className="h-8 px-3 text-xs gap-1.5 font-medium rounded-lg cursor-pointer"
+                title="Export Normality Table (PDF, LaTeX, CSV, Word, Markdown, HTML)"
+              >
+                {isExporting !== null ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-primary" />
+                )}
+                Export Table
+              </Button>
             </div>
           </div>
 
@@ -954,7 +1003,10 @@ export const DataTable: React.FC<DataTableProps> = ({
                     Shapiro-Wilk (W, p)
                   </TableHead>
                   <TableHead className="py-3.5 px-4 text-center text-xs font-bold">
-                    KS Normal p
+                    Lilliefors KS p
+                  </TableHead>
+                  <TableHead className="py-3.5 px-4 text-center text-xs font-bold">
+                    Anderson-Darling p
                   </TableHead>
                   <TableHead className="py-3.5 px-4 text-center text-xs font-bold">
                     Skew / Kurt
@@ -1002,6 +1054,21 @@ export const DataTable: React.FC<DataTableProps> = ({
                     <TableCell className="py-3 px-4 text-center font-mono text-xs">
                       {fmtP(prof.ks_p)}
                     </TableCell>
+                    <TableCell className="py-3 px-4 text-center font-mono text-xs">
+                      {prof.anderson_p !== null && prof.anderson_p !== undefined ? (
+                        <span
+                          className={
+                            prof.anderson_passed === false
+                              ? 'text-rose-600 dark:text-rose-400 font-semibold'
+                              : 'text-emerald-600 dark:text-emerald-400'
+                          }
+                        >
+                          {fmtP(prof.anderson_p)}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
                     <TableCell className="py-3 px-4 text-center font-mono text-xs text-muted-foreground">
                       {prof.skewness.toFixed(2)} / {prof.kurtosis.toFixed(2)}
                     </TableCell>
@@ -1027,7 +1094,20 @@ export const DataTable: React.FC<DataTableProps> = ({
                 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
                 : rec.suitability === 'suitable'
                   ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30'
-                  : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                  : rec.suitability === 'not_recommended'
+                    ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
+                    : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+
+            const isDesignGuard =
+              rec.test_id === 'cell_tests_unavailable' || rec.suitability === 'not_recommended'
+            const actionLabel =
+              rec.target_tab === 'charts'
+                ? 'Open in Visualizations'
+                : rec.target_tab === 'power'
+                  ? 'Open TOST / Sensitivity'
+                  : rec.target_mode === 'posthoc_lab'
+                    ? 'Open Post-Hoc Lab'
+                    : 'Open in Workbench'
 
             return (
               <div
@@ -1083,25 +1163,34 @@ export const DataTable: React.FC<DataTableProps> = ({
                     {rec.reference_citation}
                   </span>
 
-                  {onSelectRecommendedTest && (
+                  {onSelectRecommendedTest && !isDesignGuard ? (
                     <Button
                       type="button"
                       size="sm"
                       onClick={() =>
                         onSelectRecommendedTest(
-                          (rec.test_id === 'bayesian_rope'
-                            ? 'wilcoxon'
+                          (rec.test_id === 'bayesian_rope' ||
+                          rec.test_id === 'bayesian_plackett_luce' ||
+                          rec.test_id === 'bayesian_correlated_ttest' ||
+                          rec.test_id === 'tost'
+                            ? 'auto'
                             : rec.test_id) as StatisticalTestType,
                           (rec.suggested_table_type || 'instance_algorithm') as TableType,
-                          activeMetricsList[0]
+                          activeMetricsList[0],
+                          rec.target_tab,
+                          rec.target_mode
                         )
                       }
                       className="h-8 px-3.5 text-xs gap-1.5 shrink-0"
                     >
-                      Open in Workbench
+                      {actionLabel}
                       <ArrowRight className="w-3.5 h-3.5" />
                     </Button>
-                  )}
+                  ) : isDesignGuard ? (
+                    <span className="px-2.5 py-1 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-[11px] font-semibold shrink-0">
+                      Design Guard
+                    </span>
+                  ) : null}
                 </div>
               </div>
             )
@@ -1120,7 +1209,7 @@ export const DataTable: React.FC<DataTableProps> = ({
               observations
             </span>
 
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground ml-auto shrink-0 justify-end">
               <span>Rows per page:</span>
               <select
                 value={pageSize}
@@ -1137,6 +1226,23 @@ export const DataTable: React.FC<DataTableProps> = ({
                   </option>
                 ))}
               </select>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isExporting !== null || !exploration}
+                onClick={() => setIsExportDialogOpen(true)}
+                className="h-8 px-3 text-xs gap-1.5 font-medium rounded-lg cursor-pointer text-foreground ml-auto shrink-0"
+                title="Export Observations Table (PDF, LaTeX, CSV, Word, Markdown, HTML)"
+              >
+                {isExporting !== null ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5 text-primary" />
+                )}
+                Export Table
+              </Button>
             </div>
           </div>
 
@@ -1259,7 +1365,7 @@ export const DataTable: React.FC<DataTableProps> = ({
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-2 font-mono">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono">
                   <div className="p-2.5 rounded-lg border border-border/60 bg-muted/30">
                     <span className="text-[10px] uppercase text-muted-foreground block">
                       Shapiro-Wilk
@@ -1275,10 +1381,27 @@ export const DataTable: React.FC<DataTableProps> = ({
                   </div>
                   <div className="p-2.5 rounded-lg border border-border/60 bg-muted/30">
                     <span className="text-[10px] uppercase text-muted-foreground block">
-                      Kolmogorov-Smirnov
+                      Lilliefors KS
                     </span>
                     <strong>
                       D={inspectedProfile.ks_stat.toFixed(3)} (p={fmtP(inspectedProfile.ks_p)})
+                    </strong>
+                  </div>
+                  <div className="p-2.5 rounded-lg border border-border/60 bg-muted/30">
+                    <span className="text-[10px] uppercase text-muted-foreground block">
+                      Anderson-Darling
+                    </span>
+                    <strong
+                      className={
+                        inspectedProfile.anderson_passed === false
+                          ? 'text-rose-500'
+                          : 'text-emerald-500'
+                      }
+                    >
+                      {inspectedProfile.anderson_stat !== null &&
+                      inspectedProfile.anderson_stat !== undefined
+                        ? `A²=${inspectedProfile.anderson_stat.toFixed(3)} (p=${fmtP(inspectedProfile.anderson_p)})`
+                        : '—'}
                     </strong>
                   </div>
                   <div className="p-2.5 rounded-lg border border-border/60 bg-muted/30">
