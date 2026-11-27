@@ -58,17 +58,32 @@ export const ChatArtifactCard: React.FC<ChatArtifactCardProps> = ({ artifact }) 
     setDownloadError(null)
     const baseName = `saes_${plotArt.plot_type}_${plotArt.metric}${plotArt.instance ? `_${plotArt.instance}` : ''}`
     try {
-      const blob = await apiClient.exportPlotFromPath(plotArt.filename, {
-        plot_type: plotArt.plot_type,
-        export_format: format,
-        metric: plotArt.metric,
-        instance: plotArt.instance,
-        scope: plotArt.scope,
-        alpha: plotArt.alpha,
-        rope_percent: plotArt.rope_percent,
-        palette: plotArt.palette,
-        dpi: 300,
-      })
+      const blob = plotArt.plot_type.startsWith('pareto:')
+        ? await apiClient.exportParetoPlot(plotArt.filename, {
+            instance: plotArt.instance || 'Problem',
+            mode: plotArt.plot_type.replace(/^pareto:/, '') as
+              | 'attainment'
+              | 'runs'
+              | 'representative'
+              | 'eaf-diff'
+              | 'small-multiples'
+              | '3d'
+              | 'pcp',
+            palette: plotArt.palette || 'academic',
+            export_format: format,
+            dpi: 300,
+          })
+        : await apiClient.exportPlotFromPath(plotArt.filename, {
+            plot_type: plotArt.plot_type,
+            export_format: format,
+            metric: plotArt.metric,
+            instance: plotArt.instance,
+            scope: plotArt.scope,
+            alpha: plotArt.alpha,
+            rope_percent: plotArt.rope_percent,
+            palette: plotArt.palette,
+            dpi: 300,
+          })
       triggerBlobDownload(blob, `${baseName}.${format}`)
     } catch {
       if (format === 'png' && plotArt.image_data_url) {

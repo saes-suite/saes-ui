@@ -1,5 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { AppWindow, BookOpen, Globe, Moon, Settings, Sun, ZoomIn, ZoomOut } from 'lucide-react'
+import {
+  AppWindow,
+  BookOpen,
+  Database,
+  Globe,
+  Layers,
+  Moon,
+  Settings,
+  Sun,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { SettingsModal } from './SettingsModal'
@@ -9,6 +20,9 @@ interface HeaderProps {
   isTauri: boolean
   apiOnline: boolean
   onNavigateHub: () => void
+  onNavigatePareto?: () => void
+  isParetoActive?: boolean
+  hasParetoPlugin?: boolean
   onNavigateGuide?: () => void
   isGuideActive?: boolean
   onRefreshHealth: () => void
@@ -21,6 +35,9 @@ export const Header: React.FC<HeaderProps> = ({
   isTauri,
   apiOnline,
   onNavigateHub,
+  onNavigatePareto,
+  isParetoActive = false,
+  hasParetoPlugin = false,
   onNavigateGuide,
   isGuideActive = false,
   onRefreshHealth,
@@ -99,10 +116,61 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
               </div>
             </button>
+
+            {/* Primary Mode Switcher (Core Benchmarks vs Pareto & EAF Plugin) */}
+            {hasParetoPlugin && onNavigatePareto && (
+              <div
+                className="hidden md:flex items-center rounded-lg border border-border bg-muted/60 p-0.5 ml-2 shadow-2xs"
+                role="tablist"
+                aria-label="SAES Workspace Mode"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={!isParetoActive && !isGuideActive}
+                  onClick={onNavigateHub}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    !isParetoActive && !isGuideActive
+                      ? 'bg-card text-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Database className="w-3.5 h-3.5 text-primary" />
+                  Benchmarks
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={isParetoActive}
+                  onClick={onNavigatePareto}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                    isParetoActive
+                      ? 'bg-card text-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5 text-indigo-500" />
+                  Pareto &amp; EAF
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Right: Guide, Zoom, Server Health, Settings */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {hasParetoPlugin && onNavigatePareto && (
+              <Button
+                type="button"
+                variant={isParetoActive ? 'default' : 'outline'}
+                size="sm"
+                onClick={onNavigatePareto}
+                className="md:hidden h-9 gap-1.5 text-xs font-medium cursor-pointer shadow-xs shrink-0"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>Pareto</span>
+              </Button>
+            )}
+
             {onNavigateGuide && (
               <Button
                 type="button"

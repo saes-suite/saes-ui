@@ -709,9 +709,18 @@ export interface ChatHistoryItem {
 
 export interface UIAction {
   type: 'navigate_ui' | 'select_dataset' | 'refresh_datasets' | string
-  view?: 'hub' | 'editor' | 'fix-issues' | 'visualize' | string
+  view?:
+    | 'hub'
+    | 'editor'
+    | 'fix-issues'
+    | 'visualize'
+    | 'guide'
+    | 'pareto-hub'
+    | 'pareto-visualize'
+    | string
   tab?: 'data' | 'stats' | 'charts' | 'profiles' | 'power' | 'reproducibility' | string
   dataset_name?: string
+  pareto_study?: string
   alpha?: number
   metric?: string
   test_type?: StatisticalTestType
@@ -957,4 +966,172 @@ export interface ReproducibilityResponse {
   python_script: string
   jupyter_notebook_json: string
   manifest: EnvironmentManifest
+}
+
+// 5. SAES Python Plugin Discovery & Pareto/EAF Plugin
+export interface PluginManifest {
+  id: string
+  name: string
+  version: string
+  description: string
+  capabilities: string[]
+  api_prefix?: string | null
+  author?: string
+  homepage?: string
+}
+
+export interface PluginRegistryResponse {
+  plugins: PluginManifest[]
+  registered_tests: string[]
+  registered_renderers: string[]
+  registered_plotters: string[]
+}
+
+export type ParetoPlotMode =
+  'attainment' | 'runs' | 'representative' | 'eaf-diff' | 'small-multiples' | '3d' | 'pcp'
+
+export interface ParetoCollectionListItem {
+  name: string
+  instances: string[]
+  algorithms: string[]
+  total_fronts: number
+  total_points: number
+  has_references: boolean
+}
+
+export interface ParetoInstanceMeta {
+  instance: string
+  n_objectives: number
+  objective_names: string[]
+  minimize: boolean[]
+  algorithms: string[]
+  runs_per_algorithm: Record<string, number[]>
+  has_reference_front: boolean
+  reference_points_count: number
+  total_points: number
+}
+
+export interface ParetoCollectionSummary {
+  name: string
+  instances: string[]
+  algorithms: string[]
+  total_fronts: number
+  total_points: number
+  reference_instances: string[]
+  instance_details: Record<string, ParetoInstanceMeta>
+}
+
+export type ParetoTitleMode = 'full' | 'compact' | 'none'
+export type ParetoLegendPlacement = 'top' | 'bottom' | 'right' | 'inside' | 'none'
+export type ParetoLabelMode = 'all' | 'x-only' | 'y-only' | 'ticks-only' | 'none'
+export type ParetoBoldMode = 'none' | 'all' | 'title-axes' | 'title' | 'axes'
+
+export interface ParetoPlotRequest {
+  instance: string
+  mode: ParetoPlotMode
+  algorithms?: string[] | null
+  run_ids?: number[] | null
+  show_reference?: boolean
+  filter_dominated?: boolean
+  run_opacity?: number
+  show_extreme_bounds?: boolean
+  show_accumulated?: boolean
+  algo_a?: string | null
+  algo_b?: string | null
+  n_permutations?: number
+  seed?: number
+  palette?: string
+  paper_format?: string
+  title?: string | null
+  title_mode?: ParetoTitleMode
+  legend_placement?: ParetoLegendPlacement
+  font_size?: number
+  font_family?: string
+  label_mode?: ParetoLabelMode
+  bold_mode?: ParetoBoldMode
+  show_grid?: boolean
+  dark_theme?: boolean
+  width_px?: number | null
+  height_px?: number | null
+}
+
+export interface ParetoExportPlotRequest extends ParetoPlotRequest {
+  export_format: PlotExportFormat
+  dpi?: number
+}
+
+export interface EAFDifferenceResult {
+  instance: string
+  algo_a: string
+  algo_b: string
+  n_runs_a: number
+  n_runs_b: number
+  objective_names: [string, string]
+  minimize: [boolean, boolean]
+  max_advantage_a: number
+  max_advantage_b: number
+  ks_statistic: number
+  p_value: number
+  n_permutations: number
+  alpha: number
+  is_significant: boolean
+  area_fraction_a_better: number
+  area_fraction_b_better: number
+  interpretation: string
+}
+
+export interface ParetoPlotResponse {
+  instance: string
+  mode: ParetoPlotMode | string
+  plotly_figure: {
+    data: Array<Record<string, unknown>>
+    layout?: Record<string, unknown>
+  }
+  eaf_difference?: EAFDifferenceResult | null
+}
+
+export interface ParetoCoverageCell {
+  algo_a: string
+  algo_b: string
+  mean: number
+  median: number
+  std: number
+}
+
+export interface ParetoAlgorithmRepresentative {
+  algorithm: string
+  n_runs: number
+  metric_used: string
+  best_run_id: number
+  best_score: number
+  median_run_id: number
+  median_score: number
+  worst_run_id: number
+  worst_score: number
+  accumulated_points_count: number
+  mean_igd_plus?: number | null
+  mean_hv?: number | null
+}
+
+export interface ParetoCoverageResponse {
+  instance: string
+  algorithms: string[]
+  coverage_matrix: ParetoCoverageCell[]
+  representative_runs: ParetoAlgorithmRepresentative[]
+}
+
+export interface ParetoToDatasetRequest {
+  dataset_filename: string
+  indicators: string[]
+  instances?: string[] | null
+  algorithms?: string[] | null
+  seed?: number
+}
+
+export interface ParetoToDatasetResponse {
+  filename: string
+  row_count: number
+  algorithms: string[]
+  instances: string[]
+  metrics: string[]
 }
