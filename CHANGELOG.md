@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [Released]
+
+## [0.5.0] — 2026-11-27 (@rorro6787)
+
 ### Added
 
 - Automatic SAES Python plugin discovery via `GET /api/v1/plugins` (`usePlugins` hook, `PluginManifest` / `PluginRegistryResponse` types, and **Installed SAES Python Plugins** panel in `SettingsModal`).
@@ -15,8 +19,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Uses the shared `ChartWorkbench` WYSIWYG paper figure stage (`PaletteSelector`, `ExportToolbar`, 5 paper aspect-ratio presets, fine-grained width/height sliders with reset, legend placement, font size/family, title/custom title/hidden title, axis labels, bold weight, grid toggle, light/dark paper canvas, reference-only `only` toggle alongside algorithms, and clean borderless Plotly canvas without floating modebar buttons) across 4 focused tabs (`Fronts & EAF`, `EAF Diff (A vs B)`, `Coverage & Runs`, and `Extract to SAES`).
   - Added Section **06 Pareto & EAF Plugin** to `GuideView.tsx` documenting all 3 dataset input formats with downloadable `.csv` and `.pf` samples and a live demo launcher.
   - Wired SAES-AI chat navigation (`pareto-hub`, `pareto-visualize`, `guide`) in `App.tsx` and high-DPI PNG/SVG/PDF export routing for inline `pareto:*` plot artifacts in `ChatArtifactCard.tsx`.
-
-## [Released]
 
 ## [0.4.1] — 2026-11-24 (@rorro6787)
 
