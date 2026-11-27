@@ -11,8 +11,17 @@ import {
   DatasetItem,
   EffectSizeForestResult,
   HealthResponse,
+  ParetoCollectionListItem,
+  ParetoCollectionSummary,
+  ParetoCoverageResponse,
+  ParetoExportPlotRequest,
+  ParetoPlotRequest,
+  ParetoPlotResponse,
+  ParetoToDatasetRequest,
+  ParetoToDatasetResponse,
   PerformanceProfilesResponse,
   PlotExportFormat,
+  PluginRegistryResponse,
   PostHocResult,
   PowerAnalysisResponse,
   ProviderProbeResponse,
@@ -1311,6 +1320,142 @@ export class SaesApiClient {
     }
 
     return { status: 'ok', message: `Model '${name}' downloaded successfully.` }
+  }
+
+  /**
+   * Discover installed SAES Python plugins and dynamically registered extensions.
+   */
+  public async getPlugins(): Promise<PluginRegistryResponse> {
+    const res = await this.client.get<PluginRegistryResponse>('/api/v1/plugins')
+    return res.data
+  }
+
+  // ── SAES Pareto & EAF Plugin Endpoints (/api/v1/plugins/pareto) ──────
+
+  public async listParetoCollections(): Promise<ParetoCollectionListItem[]> {
+    const res = await this.client.get<ParetoCollectionListItem[]>(
+      '/api/v1/plugins/pareto/collections'
+    )
+    return res.data
+  }
+
+  public async createDemoParetoCollection(
+    name: string = 'demo_moo_suite',
+    nRuns: number = 12,
+    seed: number = 42
+  ): Promise<ParetoCollectionSummary> {
+    const res = await this.client.post<ParetoCollectionSummary>(
+      '/api/v1/plugins/pareto/collections/demo',
+      null,
+      { params: { name, n_runs: nRuns, seed } }
+    )
+    return res.data
+  }
+
+  public async uploadParetoCollection(
+    file: File,
+    referenceFile?: File | null,
+    name?: string,
+    instance: string = 'Problem'
+  ): Promise<ParetoCollectionSummary> {
+    const form = new FormData()
+    form.append('file', file)
+    if (referenceFile) {
+      form.append('reference_file', referenceFile)
+    }
+    if (name && name.trim()) {
+      form.append('name', name.trim())
+    }
+    form.append('instance', instance)
+    const res = await this.client.post<ParetoCollectionSummary>(
+      '/api/v1/plugins/pareto/collections/upload',
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    )
+    return res.data
+  }
+
+  public async createMultiFileParetoCollection(
+    name: string,
+    instance: string,
+    groups: Array<{ algorithm: string; files: File[] }>,
+    referenceFile?: File | null
+  ): Promise<ParetoCollectionSummary> {
+    const form = new FormData()
+    form.append('name', name.trim())
+    form.append('instance', instance.trim() || 'Problem')
+    const algNames: string[] = []
+    for (const group of groups) {
+      for (const file of group.files) {
+        algNames.push(group.algorithm.trim())
+        form.append('front_files', file)
+      }
+    }
+    form.append('algorithm_names', JSON.stringify(algNames))
+    if (referenceFile) {
+      form.append('reference_file', referenceFile)
+    }
+    const res = await this.client.post<ParetoCollectionSummary>(
+      '/api/v1/plugins/pareto/collections/create-multi',
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    )
+    return res.data
+  }
+
+  public async getParetoCollectionSummary(name: string): Promise<ParetoCollectionSummary> {
+    const res = await this.client.get<ParetoCollectionSummary>(
+      `/api/v1/plugins/pareto/collections/${encodeURIComponent(name)}`
+    )
+    return res.data
+  }
+
+  public async deleteParetoCollection(name: string): Promise<void> {
+    await this.client.delete(`/api/v1/plugins/pareto/collections/${encodeURIComponent(name)}`)
+  }
+
+  public async generateParetoPlot(
+    name: string,
+    req: ParetoPlotRequest
+  ): Promise<ParetoPlotResponse> {
+    const res = await this.client.post<ParetoPlotResponse>(
+      `/api/v1/plugins/pareto/collections/${encodeURIComponent(name)}/plot`,
+      req
+    )
+    return res.data
+  }
+
+  public async exportParetoPlot(name: string, req: ParetoExportPlotRequest): Promise<Blob> {
+    const res = await this.client.post<Blob>(
+      `/api/v1/plugins/pareto/collections/${encodeURIComponent(name)}/export-plot`,
+      req,
+      { responseType: 'blob' }
+    )
+    return res.data
+  }
+
+  public async getParetoCoverage(
+    name: string,
+    instance: string,
+    algorithms?: string[] | null,
+    filterDominated: boolean = true
+  ): Promise<ParetoCoverageResponse> {
+    const res = await this.client.post<ParetoCoverageResponse>(
+      `/api/v1/plugins/pareto/collections/${encodeURIComponent(name)}/coverage`,
+      { instance, algorithms: algorithms ?? null, filter_dominated: filterDominated }
+    )
+    return res.data
+  }
+
+  public async convertParetoToDataset(
+    name: string,
+    req: ParetoToDatasetRequest
+  ): Promise<ParetoToDatasetResponse> {
+    const res = await this.client.post<ParetoToDatasetResponse>(
+      `/api/v1/plugins/pareto/collections/${encodeURIComponent(name)}/to-dataset`,
+      req
+    )
+    return res.data
   }
 }
 

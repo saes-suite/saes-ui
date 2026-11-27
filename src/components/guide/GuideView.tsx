@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   ArrowLeft,
   BookOpen,
@@ -24,6 +24,10 @@ import {
   ChevronRight,
   Terminal,
   ExternalLink,
+  Target,
+  FileArchive,
+  Files,
+  GitCompare,
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
@@ -45,12 +49,62 @@ import {
   WorkflowPipelineDiagram,
 } from './GuideVisuals'
 
-type GuideSection = 'overview' | 'data-input' | 'examples' | 'modules' | 'api-ai'
+export type GuideSection = 'overview' | 'data-input' | 'examples' | 'modules' | 'api-ai' | 'pareto'
+
+const SAMPLE_PARETO_CSV = `algorithm,instance,run_id,f1,f2
+NSGA-II,ZDT1,0,0.05,0.82
+NSGA-II,ZDT1,0,0.25,0.54
+NSGA-II,ZDT1,0,0.60,0.26
+NSGA-II,ZDT1,0,0.95,0.06
+NSGA-II,ZDT1,1,0.08,0.79
+NSGA-II,ZDT1,1,0.32,0.48
+NSGA-II,ZDT1,1,0.70,0.20
+MOEA/D,ZDT1,0,0.02,0.88
+MOEA/D,ZDT1,0,0.28,0.50
+MOEA/D,ZDT1,0,0.65,0.22
+MOEA/D,ZDT1,0,0.98,0.03
+MOEA/D,ZDT1,1,0.04,0.84
+MOEA/D,ZDT1,1,0.35,0.44
+MOEA/D,ZDT1,1,0.72,0.18
+Reference,ZDT1,0,0.00,1.00
+Reference,ZDT1,0,0.25,0.50
+Reference,ZDT1,0,0.50,0.2929
+Reference,ZDT1,0,1.00,0.00`
+
+const SAMPLE_PARETO_PF = `0.0000\t1.0000
+0.1000\t0.6838
+0.2500\t0.5000
+0.5000\t0.2929
+0.7500\t0.1340
+1.0000\t0.0000`
+
+const PARETO_PYTHON_SNIPPET = `import saes
+from saes.plugins import pareto
+
+# Load tidy CSV + optional .pf reference front (or load_directory / load_zip)
+fronts = pareto.load_csv("fronts.csv", reference_front="ZDT1.pf")
+
+# 1. Exact 2D Empirical Attainment Surfaces (25% / 50% median / 75%)
+att = pareto.attainment(fronts, instance="ZDT1", levels=(0.25, 0.50, 0.75))
+
+# 2. Pairwise spatial ΔEAF difference & KS-EAF permutation hypothesis test
+diff = pareto.eaf_difference(fronts, instance="ZDT1", algo_a="NSGA-II", algo_b="MOEA/D")
+print(diff.summary())
+
+# 3. Export publication vector figure (PDF/SVG/PNG)
+pdf_bytes, _, _ = pareto.export_plot(fronts, instance="ZDT1", mode="attainment", export_format="pdf")
+
+# 4. Bridge to core SAES statistical suite via quality indicators
+dataset = fronts.to_indicators_dataset(indicators=["HV", "IGD+", "EPS", "Spacing"])
+print(saes.statistics.friedman_nemenyi(dataset, metric="IGD+").summary())`
 
 interface GuideViewProps {
   apiOnline: boolean
+  initialSection?: GuideSection
+  hasParetoPlugin?: boolean
   onBackToHub: () => void
   onTryExample: (csvContent: string, filename: string) => Promise<void>
+  onTryParetoDemo?: () => Promise<void>
   onOpenChat: () => void
 }
 
@@ -92,14 +146,22 @@ const ANATOMY_SAMPLE_ROWS = [
 
 export const GuideView: React.FC<GuideViewProps> = ({
   apiOnline,
+  initialSection = 'overview',
+  hasParetoPlugin = true,
   onBackToHub,
   onTryExample,
+  onTryParetoDemo,
   onOpenChat,
 }) => {
-  const [activeSection, setActiveSection] = useState<GuideSection>('overview')
+  const [activeSection, setActiveSection] = useState<GuideSection>(initialSection)
   const [selectedColumn, setSelectedColumn] = useState<SchemaColumnSpec['name']>('algorithm')
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [loadingExampleId, setLoadingExampleId] = useState<string | null>(null)
+  const [isLoadingParetoDemo, setIsLoadingParetoDemo] = useState(false)
+
+  useEffect(() => {
+    setActiveSection(initialSection)
+  }, [initialSection])
 
   const handleCopy = async (text: string, id: string) => {
     try {
@@ -177,6 +239,13 @@ export const GuideView: React.FC<GuideViewProps> = ({
       label: 'Python API & AI',
       subtitle: 'Python library & AI assistant',
       icon: Code,
+    },
+    {
+      id: 'pareto',
+      num: '06',
+      label: 'Pareto & EAF Plugin',
+      subtitle: 'Front formats, EAF & indicators',
+      icon: Target,
     },
   ]
 
@@ -1074,6 +1143,246 @@ export const GuideView: React.FC<GuideViewProps> = ({
                   <Sparkles className="w-3.5 h-3.5" />
                   Open Statistical Consultant
                 </Button>
+              </div>
+            </div>
+          )}
+
+          {/* SECTION 06: PARETO & EAF PLUGIN SPECIFICATION */}
+          {activeSection === 'pareto' && (
+            <div className="space-y-6 animate-in fade-in-50 duration-200">
+              {/* Intro Card */}
+              <div className="rounded-xl border border-border/80 bg-card p-6 shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px] font-mono bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20"
+                      >
+                        Built-in Plugin: saes.plugins.pareto
+                      </Badge>
+                    </div>
+                    <h2 className="text-lg font-bold text-foreground">
+                      Pareto Front Studies &amp; Empirical Attainment Functions (EAF)
+                    </h2>
+                    <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl">
+                      Unlike scalar benchmark CSVs (6 fixed columns), a{' '}
+                      <strong>Pareto Front Study</strong> stores sets of{' '}
+                      <em>m-dimensional objective vectors</em> across multiple runs, algorithms, and
+                      problem instances, together with an optional{' '}
+                      <strong>Reference Pareto Front</strong>.
+                    </p>
+                  </div>
+
+                  {hasParetoPlugin && onTryParetoDemo && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={!apiOnline || isLoadingParetoDemo}
+                      onClick={async () => {
+                        setIsLoadingParetoDemo(true)
+                        try {
+                          await onTryParetoDemo()
+                        } finally {
+                          setIsLoadingParetoDemo(false)
+                        }
+                      }}
+                      className="gap-1.5 text-xs h-9 shrink-0 shadow-xs"
+                    >
+                      {isLoadingParetoDemo ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Play className="w-3.5 h-3.5" />
+                      )}
+                      Try Pareto Demo Suite
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* 3 Supported Input Formats */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                  <FileSpreadsheet className="w-4 h-4 text-primary" />3 Supported Input Formats for
+                  Pareto Front Studies
+                </h3>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  {/* Format 1: Multi-File */}
+                  <div className="rounded-xl border border-border/80 bg-card p-5 shadow-xs space-y-3 flex flex-col justify-between">
+                    <div className="space-y-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                          <Files className="w-4 h-4" />
+                        </span>
+                        <div>
+                          <h4 className="text-xs font-bold text-foreground">
+                            1. Multi-File Runs (Guided Builder)
+                          </h4>
+                          <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                            Recommended for jMetal / pymoo / PlatEMO
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Upload individual run files (<code>FUN.0.tsv</code>, <code>FUN.1.tsv</code>,
+                        …) grouped by algorithm name plus one optional reference front file (
+                        <code>.pf</code> / <code>.tsv</code> / <code>.csv</code>). Each file simply
+                        contains 2+ numeric columns separated by spaces, tabs, or commas (headers
+                        optional).
+                      </p>
+                      <pre className="rounded-lg border border-border/70 bg-muted/30 p-3 text-[11px] font-mono text-foreground overflow-x-auto">
+                        {SAMPLE_PARETO_PF}
+                      </pre>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDownloadCsv(SAMPLE_PARETO_PF, 'ZDT1_reference.pf')}
+                      className="gap-1.5 text-xs h-8 w-full"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download Sample .pf Reference
+                    </Button>
+                  </div>
+
+                  {/* Format 2: Tidy CSV */}
+                  <div className="rounded-xl border border-border/80 bg-card p-5 shadow-xs space-y-3 flex flex-col justify-between">
+                    <div className="space-y-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="p-1.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                          <FileSpreadsheet className="w-4 h-4" />
+                        </span>
+                        <div>
+                          <h4 className="text-xs font-bold text-foreground">
+                            2. Tidy Multi-Run Front CSV
+                          </h4>
+                          <span className="text-[10px] text-muted-foreground">
+                            Single table across instances &amp; runs
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Required column: <code>algorithm</code> + 2 or more numeric objective
+                        columns (e.g. <code>f1, f2</code> or <code>f1, f2, f3</code>). Optional:{' '}
+                        <code>instance</code> and <code>run_id</code>. Rows with{' '}
+                        <code>algorithm = Reference</code> (or <code>PF</code>) are automatically
+                        promoted to the reference Pareto front.
+                      </p>
+                      <pre className="rounded-lg border border-border/70 bg-muted/30 p-3 text-[11px] font-mono text-foreground overflow-x-auto max-h-36">
+                        {`algorithm,instance,run_id,f1,f2\nNSGA-II,ZDT1,0,0.05,0.82\nMOEA/D,ZDT1,0,0.02,0.88\nReference,ZDT1,0,0.00,1.00`}
+                      </pre>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        handleDownloadCsv(SAMPLE_PARETO_CSV, 'sample_pareto_fronts.csv')
+                      }
+                      className="gap-1.5 text-xs h-8 w-full"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download Sample Pareto CSV
+                    </Button>
+                  </div>
+
+                  {/* Format 3: jMetal ZIP */}
+                  <div className="rounded-xl border border-border/80 bg-card p-5 shadow-xs space-y-3 flex flex-col justify-between">
+                    <div className="space-y-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="p-1.5 rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                          <FileArchive className="w-4 h-4" />
+                        </span>
+                        <div>
+                          <h4 className="text-xs font-bold text-foreground">
+                            3. jMetal / PlatEMO ZIP Bundle
+                          </h4>
+                          <span className="text-[10px] text-muted-foreground">
+                            Multi-instance experiment folders
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Zip your standard experiment directory directly. SAES detects algorithm
+                        names, instance folders, run indices (<code>FUN.&lt;run&gt;.tsv|.csv</code>
+                        ), and reference fronts in <code>reference_fronts/&lt;instance&gt;.pf</code>
+                        .
+                      </p>
+                      <pre className="rounded-lg border border-border/70 bg-muted/30 p-3 text-[11px] font-mono text-foreground overflow-x-auto">
+                        {`experiment.zip\n├── NSGA-II/ZDT1/FUN.0.tsv\n├── MOEAD/ZDT1/FUN.0.tsv\n└── reference_fronts/ZDT1.pf`}
+                      </pre>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground bg-muted/30 rounded-lg px-3 py-2 border border-border/60">
+                      Tip: Non-dominated filtering is applied automatically so full populations are
+                      also safe to upload.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scientific Capabilities & Bridge */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-xl border border-border/80 bg-card p-5 shadow-xs space-y-3">
+                  <div className="flex items-center gap-2">
+                    <GitCompare className="w-4 h-4 text-indigo-500" />
+                    <h3 className="text-sm font-semibold text-foreground">
+                      Statistical Front Analytics &amp; EAF
+                    </h3>
+                  </div>
+                  <ul className="space-y-2 text-xs text-muted-foreground">
+                    <li>
+                      <strong className="text-foreground">Empirical Attainment Surfaces:</strong>{' '}
+                      50% median surface + 25%–75% interquartile attainment band (the
+                      multi-objective equivalent of a boxplot, eliminating multi-run overplotting).
+                    </li>
+                    <li>
+                      <strong className="text-foreground">Spatial ΔEAF &amp; KS-EAF Test:</strong>{' '}
+                      Mirrored heatmaps showing exactly <em>where</em> Algorithm A outperforms B in
+                      objective space, paired with a deterministic permutation p-value.
+                    </li>
+                    <li>
+                      <strong className="text-foreground">Set Coverage C(A, B) &amp; Runs:</strong>{' '}
+                      Automatic identification of Best / Median / Worst runs by Pareto-compliant
+                      IGD+, plus pairwise dominance coverage matrix.
+                    </li>
+                    <li>
+                      <strong className="text-foreground">Extract to SAES Benchmarks:</strong>{' '}
+                      Computes exact 2D/3D HV, IGD+, IGD, Additive ε, GD, and Spacing into a
+                      canonical 6-column SAES CSV for Friedman, Bayesian, TOST, and LaTeX tables.
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Python Snippet */}
+                <div className="rounded-xl border border-border/80 bg-card overflow-hidden shadow-xs flex flex-col">
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-muted/50 border-b border-border/70">
+                    <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+                      <Terminal className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>saes_pareto_eaf.py</span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleCopy(PARETO_PYTHON_SNIPPET, 'pareto-python')}
+                      className="gap-1.5 text-xs h-7 px-2.5"
+                    >
+                      {copiedId === 'pareto-python' ? (
+                        <Check className="w-3 h-3 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
+                      {copiedId === 'pareto-python' ? 'Copied' : 'Copy'}
+                    </Button>
+                  </div>
+                  <div className="p-4 bg-background flex-1">
+                    <pre className="rounded-lg border border-border/70 bg-muted/30 p-3 text-[11px] font-mono text-foreground overflow-x-auto leading-relaxed">
+                      {PARETO_PYTHON_SNIPPET}
+                    </pre>
+                  </div>
+                </div>
               </div>
             </div>
           )}

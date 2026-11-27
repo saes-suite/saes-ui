@@ -10,7 +10,7 @@ import {
 import { Button } from '../ui/button'
 import { apiClient } from '../../api/client'
 import { useAISettings } from '../../context/AISettingsContext'
-import { AISettings, ProviderProbeResponse } from '../../api/types'
+import { AISettings, PluginManifest, ProviderProbeResponse } from '../../api/types'
 import {
   AlertTriangle,
   Bot,
@@ -22,6 +22,7 @@ import {
   EyeOff,
   Flame,
   Play,
+  Plug,
   PlusCircle,
   RefreshCw,
   Server,
@@ -43,6 +44,8 @@ interface SettingsModalProps {
   apiOnline: boolean
   onRefreshHealth: () => void
   initialTab?: 'server' | 'ai'
+  plugins?: PluginManifest[]
+  onRefreshPlugins?: () => void
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -51,6 +54,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   apiOnline,
   onRefreshHealth,
   initialTab = 'ai',
+  plugins = [],
+  onRefreshPlugins,
 }) => {
   const { settings: savedAiSettings, updateSettings: saveAiSettings } = useAISettings()
 
@@ -427,11 +432,58 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={onRefreshHealth}
+                onClick={() => {
+                  onRefreshHealth()
+                  onRefreshPlugins?.()
+                }}
                 className="h-7 text-xs text-muted-foreground hover:text-foreground"
               >
                 Recheck
               </Button>
+            </div>
+
+            {/* Installed SAES Python Plugins */}
+            <div className="space-y-2 pt-2 border-t border-border/60">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Plug className="w-3.5 h-3.5" />
+                  Installed SAES Python Plugins ({plugins.length})
+                </span>
+              </div>
+              {plugins.length > 0 ? (
+                <div className="space-y-2">
+                  {plugins.map((pl) => (
+                    <div
+                      key={pl.id}
+                      className="p-2.5 rounded-lg border border-border bg-card/70 text-xs space-y-1"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-foreground">{pl.name}</span>
+                        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-teal-500/10 text-teal-700 dark:text-teal-300">
+                          {pl.id} v{pl.version}
+                        </span>
+                      </div>
+                      {pl.description && (
+                        <p className="text-[11px] text-muted-foreground leading-snug">
+                          {pl.description}
+                        </p>
+                      )}
+                      {pl.api_prefix && (
+                        <p className="text-[10px] font-mono text-muted-foreground">
+                          API: {pl.api_prefix}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground bg-muted/30 p-2.5 rounded-lg border border-border/50">
+                  No SAES Python plugins detected on this server. Ensure you are running{' '}
+                  <code className="font-mono">saes &gt;= 2.1.0</code> or install external{' '}
+                  <code className="font-mono">saes.plugins</code> entry-point packages and restart{' '}
+                  <code className="font-mono">saes-api</code>.
+                </p>
+              )}
             </div>
           </div>
         )}

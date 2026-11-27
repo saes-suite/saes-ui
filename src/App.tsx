@@ -1,20 +1,30 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Header } from './components/layout/Header'
 import { DatasetHub } from './components/data/DatasetHub'
 import { DatasetEditor } from './components/data/DatasetEditor'
 import { VisualizeWorkspace, WorkspaceTab } from './components/visualization/VisualizeWorkspace'
 import { ChatDrawer } from './components/chat/ChatDrawer'
 import { useAnalysis } from './hooks/useAnalysis'
+import { usePlugins } from './hooks/usePlugins'
 import { useTauri } from './hooks/useTauri'
 import { useChat } from './hooks/useChat'
-import { StatisticalTestType, TableType, UIAction } from './api/types'
+import {
+  ParetoCollectionListItem,
+  ParetoCollectionSummary,
+  StatisticalTestType,
+  TableType,
+  UIAction,
+} from './api/types'
+import { apiClient } from './api/client'
 import { Sparkles, AlertCircle, WifiOff, Loader2 } from 'lucide-react'
 import { MissingColumnWarningModal } from './components/data/MissingColumnWarningModal'
 import { ColumnMappingModal } from './components/data/ColumnMappingModal'
 import { ProblematicRowsFixerView } from './components/data/ProblematicRowsFixerView'
 import { SaveDatasetModal } from './components/data/SaveDatasetModal'
 import { SettingsModal } from './components/layout/SettingsModal'
-import { GuideView } from './components/guide/GuideView'
+import { GuideSection, GuideView } from './components/guide/GuideView'
+import { ParetoHub } from './components/pareto/ParetoHub'
+import { ParetoWorkspace } from './components/pareto/ParetoWorkspace'
 import {
   inspectDatasetStructure,
   applyColumnMapping,
@@ -22,10 +32,12 @@ import {
   DatasetStructureResult,
 } from './lib/datasetInspection'
 
-type AppView = 'hub' | 'fix-issues' | 'editor' | 'visualize' | 'guide'
+type AppView =
+  'hub' | 'fix-issues' | 'editor' | 'visualize' | 'guide' | 'pareto-hub' | 'pareto-visualize'
 
 export function App() {
   const [view, setView] = useState<AppView>('hub')
+  const [guideInitialSection, setGuideInitialSection] = useState<GuideSection>('overview')
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>('data')
   const [agentTestType, setAgentTestType] = useState<StatisticalTestType | undefined>(undefined)
   const [agentTableType, setAgentTableType] = useState<TableType | undefined>(undefined)
@@ -89,6 +101,60 @@ export function App() {
     checkHealth,
   } = useAnalysis()
 
+  const { plugins, hasPlugin, refreshPlugins } = usePlugins(apiOnline)
+  const hasParetoPlugin = hasPlugin('pareto')
+
+  // Pareto Studies state (mirrors Core Datasets Hub -> Workspace lifecycle)
+  const [paretoCollections, setParetoCollections] = useState<ParetoCollectionListItem[]>([])
+  const [selectedParetoName, setSelectedParetoName] = useState<string | null>(null)
+  const [isLoadingPareto, setIsLoadingPareto] = useState(false)
+  const [isCreatingParetoDemo, setIsCreatingParetoDemo] = useState(false)
+
+  const fetchParetoCollections = useCallback(async () => {
+    if (!apiOnline || !hasParetoPlugin) return
+    setIsLoadingPareto(true)
+    try {
+      const items = await apiClient.listParetoCollections()
+      setParetoCollections(items)
+    } catch {
+      setParetoCollections([])
+    } finally {
+      setIsLoadingPareto(false)
+    }
+  }, [apiOnline, hasParetoPlugin])
+
+  useEffect(() => {
+    if (hasParetoPlugin && apiOnline) {
+      fetchParetoCollections()
+    }
+  }, [hasParetoPlugin, apiOnline, fetchParetoCollections])
+
+  const handleLoadParetoDemo = async () => {
+    setIsCreatingParetoDemo(true)
+    try {
+      const created = await apiClient.createDemoParetoCollection('demo_moo_suite', 12, 42)
+      await fetchParetoCollections()
+      setSelectedParetoName(created.name)
+      setView('pareto-visualize')
+    } finally {
+      setIsCreatingParetoDemo(false)
+    }
+  }
+
+  const handleParetoStudyCreated = async (created: ParetoCollectionSummary) => {
+    await fetchParetoCollections()
+    setSelectedParetoName(created.name)
+    setView('pareto-visualize')
+  }
+
+  const handleDeleteParetoCollection = async (name: string) => {
+    await apiClient.deleteParetoCollection(name)
+    if (selectedParetoName === name) {
+      setSelectedParetoName(null)
+    }
+    await fetchParetoCollections()
+  }
+
   const handleUIAction = useCallback(
     async (action: UIAction) => {
       if (action.type === 'refresh_datasets') {
@@ -112,12 +178,31 @@ export function App() {
         if (action.tab) {
           setWorkspaceTab(action.tab as WorkspaceTab)
         }
+        if (action.view === 'pareto-hub') {
+          await fetchParetoCollections()
+          setView('pareto-hub')
+          return
+        }
+        if (action.view === 'pareto-visualize') {
+          await fetchParetoCollections()
+          if (action.pareto_study) {
+            setSelectedParetoName(action.pareto_study)
+            setView('pareto-visualize')
+          } else {
+            setView('pareto-hub')
+          }
+          return
+        }
+        if (action.view === 'guide') {
+          setView('guide')
+          return
+        }
         if (action.view === 'hub' || action.view === 'editor' || action.view === 'visualize') {
           setView(action.view)
         }
       }
     },
-    [fetchDatasets, selectDataset, setAlpha, selectedDatasetFilename]
+    [fetchDatasets, fetchParetoCollections, selectDataset, setAlpha, selectedDatasetFilename]
   )
 
   const isDatasetView = view === 'visualize' || view === 'editor'
@@ -261,8 +346,18 @@ export function App() {
           setStagedUpload(null)
           setView('hub')
         }}
+        hasParetoPlugin={hasParetoPlugin}
+        isParetoActive={view === 'pareto-hub' || view === 'pareto-visualize'}
+        onNavigatePareto={() => {
+          setStagedUpload(null)
+          fetchParetoCollections()
+          setView('pareto-hub')
+        }}
         onNavigateGuide={() => {
           setStagedUpload(null)
+          setGuideInitialSection(
+            view === 'pareto-hub' || view === 'pareto-visualize' ? 'pareto' : 'overview'
+          )
           setView(view === 'guide' ? 'hub' : 'guide')
         }}
         isGuideActive={view === 'guide'}
@@ -330,13 +425,56 @@ export function App() {
         {view === 'guide' && (
           <GuideView
             apiOnline={apiOnline}
+            initialSection={guideInitialSection}
+            hasParetoPlugin={hasParetoPlugin}
             onBackToHub={() => setView('hub')}
             onTryExample={async (csvContent, exampleFilename) => {
               await uploadAndLoadDataset(csvContent, exampleFilename)
               setWorkspaceTab('data')
               setView('visualize')
             }}
+            onTryParetoDemo={handleLoadParetoDemo}
             onOpenChat={() => setIsChatOpen(true)}
+          />
+        )}
+
+        {/* VIEW 1C: PARETO STUDIES HUB (mirrors DatasetHub) */}
+        {view === 'pareto-hub' && (
+          <ParetoHub
+            apiOnline={apiOnline}
+            collections={paretoCollections}
+            selectedCollectionName={selectedParetoName}
+            isLoading={isLoadingPareto}
+            isCreatingDemo={isCreatingParetoDemo}
+            onVisualize={(name) => {
+              setSelectedParetoName(name)
+              setView('pareto-visualize')
+            }}
+            onDelete={handleDeleteParetoCollection}
+            onLoadDemo={handleLoadParetoDemo}
+            onStudyCreated={handleParetoStudyCreated}
+            onOpenGuide={() => {
+              setGuideInitialSection('pareto')
+              setView('guide')
+            }}
+          />
+        )}
+
+        {/* VIEW 1D: PARETO & EAF WORKSPACE (mirrors VisualizeWorkspace) */}
+        {view === 'pareto-visualize' && selectedParetoName && (
+          <ParetoWorkspace
+            collectionName={selectedParetoName}
+            apiOnline={apiOnline}
+            onBackToHub={() => {
+              fetchParetoCollections()
+              setView('pareto-hub')
+            }}
+            onDatasetCreated={async (createdFilename) => {
+              await fetchDatasets()
+              await selectDataset(createdFilename)
+              setWorkspaceTab('data')
+              setView('visualize')
+            }}
           />
         )}
 
@@ -455,6 +593,8 @@ export function App() {
         apiOnline={apiOnline}
         onRefreshHealth={checkHealth}
         initialTab={settingsModal.initialTab}
+        plugins={plugins}
+        onRefreshPlugins={refreshPlugins}
       />
 
       {/* Case 1: Missing Column Rejection Warning Modal */}
